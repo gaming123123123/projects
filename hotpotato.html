@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ghost Tag Labyrinth</title>
+<style>
+  body { margin:0; background:#0f1220; font-family:sans-serif; color:#eee; }
+  canvas { display:block; margin:0 auto; background:#1b2749; }
+  #hud { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-weight:bold; }
+</style>
+</head>
+<body>
+<canvas id="game" width="800" height="600"></canvas>
+<div id="hud"></div>
+<script>
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),hud=document.getElementById("hud");
+const keys=new Set();window.addEventListener("keydown",e=>keys.add(e.code));window.addEventListener("keyup",e=>keys.delete(e.code));
+
+let botEnabled=false;window.addEventListener("keydown",e=>{if(e.code==="KeyB"){botEnabled=!botEnabled;}});
+
+const tileSize=40,cols=20,rows=15;
+let maze=[];
+
+function generateMaze(){
+  maze=Array.from({length:rows},()=>Array(cols).fill("#"));
+  function carve(x,y){
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    shuffle(dirs);
+    for(const [dx,dy] of dirs){
+      const nx=x+dx*2,ny=y+dy*2;
+      if(nx>=0&&ny>=0&&nx<cols&&ny<rows&&maze[ny][nx]==="#"){
+        maze[ny-dy][nx-dx]=".";
+        maze[ny][nx]=".";
+        carve(nx,ny);
+      }
+    }
+  }
+  maze[1][1]=".";carve(1,1);
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+
+class Player{
+  constructor(name,color,controls){this.name=name;this.color=color;this.controls=controls;this.x=0;this.y=0;this.isGhost=false;}
+  place(tx,ty){this.x=tx*tileSize+tileSize/2;this.y=ty*tileSize+tileSize/2;}
+  update(dt){
+    let ax=0,ay=0;
+    if(keys.has(this.controls.up))ay-=1;
+    if(keys.has(this.controls.down))ay+=1;
+    if(keys.has(this.controls.left))ax-=1;
+    if(keys.has(this.controls.right))ax+=1;
+    const sp=200;
+    let nx=this.x+ax*sp*dt,ny=this.y+ay*sp*dt;
+    const tx=Math.floor(nx/tileSize),ty=Math.floor(ny/tileSize);
+    if(this.isGhost||maze[ty][tx]==="."){this.x=nx;this.y=ny;}
+  }
+  draw(ctx){
+    ctx.fillStyle=this.isGhost?"purple":this.color;
+    ctx.beginPath();ctx.arc(this.x,this.y,14,0,Math.PI*2);ctx.fill();
+  }
+}
+
+class Bot{
+  constructor(me,enemy){this.me=me;this.enemy=enemy;}
+  update(dt){
+    const dx=this.enemy.x-this.me.x,dy=this.enemy.y-this.me.y;
+    const d=Math.hypot(dx,dy)||1;
+    this.me.x+=dx/d*120*dt;this.me.y+=dy/d*120*dt;
+  }
+}
+
+const p1=new Player("P1","red",{up:"KeyW",down:"KeyS",left:"KeyA",right:"KeyD"});
+const p2=new Player("P2","blue",{up:"ArrowUp",down:"ArrowDown",left:"ArrowLeft",right:"ArrowRight"});
+let bot=new Bot(p2,p1);
+
+function resetRound(){
+  generateMaze();
+  p1.place(1,1);p2.place(cols-2,rows-2);
+  p1.isGhost=true;p2.isGhost=false;
+  timer=20;message="Ghost Tag!";
+}
+let timer=20,message="Ghost Tag!";
+
+function update(dt){
+  p1.update(dt);
+  if(botEnabled){bot.update(dt);}else{p2.update(dt);}
+  const d=Math.hypot(p1.x-p2.x,p1.y-p2.y);
+  if(d<20){p1.isGhost=!p1.isGhost;p2.isGhost=!p2.isGhost;}
+  timer-=dt;
+  if(timer<=0){
+    message=(p1.isGhost?"P1":"P2")+" loses!";
+    resetRound();
+  }
+  hud.textContent=`${message} | Time left: ${Math.floor(timer)} | Bot:${botEnabled}`;
+}
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<rows;y++){for(let x=0;x<cols;x++){if(maze[y][x]==="#"){ctx.fillStyle="#333";ctx.fillRect(x*tileSize,y*tileSize,tileSize,tileSize);}}}
+  p1.draw(ctx);p2.draw(ctx);
+}
+let last=performance.now();
+function loop(now){const dt=(now-last)/1000;last=now;update(dt);draw();requestAnimationFrame(loop);}requestAnimationFrame(loop);
+resetRound();
+</script>
+</body>
+</html>

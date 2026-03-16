@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>2D Bullet Brawler</title>
+<style>
+  :root {
+    color-scheme: light dark;
+  }
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #111;
+    color: #eee;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+  }
+  header {
+    padding: 8px 12px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  header > * {
+    margin: 2px 0;
+  }
+  .btn {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #eee;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn:hover { background: #333; }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background:
+      linear-gradient(#0f2027, #203a43 30%, #2c5364) fixed;
+  }
+  .hud {
+    position: absolute;
+    left: 8px;
+    top: 52px;
+    color: #fff;
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+<header>
+  <button class="btn" id="restartBtn">Restart match</button>
+  <label class="toggle">
+    <input type="checkbox" id="botToggle" />
+    Bot on Player 2
+  </label>
+  <span>Player 1: A/D move, W jump, F shoot</span>
+  <span>Player 2: ←/→ move, ↑ jump, Right shift shoot</span>
+</header>
+<canvas id="game"></canvas>
+<div class="hud" id="hud"></div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const hud = document.getElementById('hud');
+  const botToggle = document.getElementById('botToggle');
+  const restartBtn = document.getElementById('restartBtn');
+
+  // Resize canvas to fill window
+  function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Game constants
+  const ARENA = {
+    w: () => canvas.width,
+    h: () => canvas.height,
+    floorY: () => canvas.height - 80
+  };
+
+  const GRAVITY = 1800;      // px/s^2
+  const MOVE_ACCEL = 2600;   // px/s^2
+  const MAX_SPEED = 420;     // px/s
+  const FRICTION = 2200;     // px/s^2 when grounded
+  const AIR_DRAG = 600;      // px/s^2 when airborne
+  const JUMP_SPEED = 720;    // px/s
+  const BULLET_SPEED = 900;  // px/s
+  const BULLET_COOLDOWN = 0.22; // s
+  const BULLET_LIFETIME = 1.2;  // s
+  const BULLET_KNOCKBACK = 360; // px/s impulse
+  const BULLET_DAMAGE = 12;     // hp
+  const RESPAWN_TIME = 1.8;     // s
+  const MAX_HP = 100;
+
+  // Platforms in the arena (lowered slightly)
+  let platforms = [];
+  function buildPlatforms(){
+    const W = ARENA.w(), H = ARENA.h(), F = ARENA.floorY();
+    platforms = [
+      { x: W*0.1, y: F-120, w: W*0.22, h: 16 }, // was F-160
+      { x: W*0.68, y: F-120, w: W*0.22, h: 16 }, // was F-160
+      { x: W*0.36, y: F-220, w: W*0.28, h: 16 }, // was F-280
+      // floor ledge
+      { x: 0, y: F, w: W, h: 24 }
+    ];
+  }
+  buildPlatforms();
+  window.addEventListener('resize', buildPlatforms);
+
+  // Input
+  const keys = new Set();
+  window.addEventListener('keydown', (e)=>{
+    // Prevent default for Right Ctrl mapping in some browsers
+    if (e.code === 'ControlRight') e.preventDefault();
+    keys.add(e.code);
+  });
+  window.addEventListener('keyup', (e)=>{
+    keys.delete(e.code);
+  });
+
+  // Player class
+  class Player {
+    constructor(id, color, x, y, controls) {
+      this.id = id;
+      this.color = color;
+      this.w = 44;
+      this.h = 58;
+      this.x = x;
+      this.y = y;
+      this.vx = 0;
+      this.vy = 0;
+      this.hp = MAX_HP;
+      this.dead = false;
+      this.respawnTimer = 0;
+      this.grounded = false;
+      this.canJump = true;
+      this.shootCooldown = 0;
+      this.facing = 1; // 1 right, -1 left
+      this.controls = controls;
+      this.name = controls.name;
+      this.score = 0;
+    }
+    getRect(){ return {x:this.x, y:this.y, w:this.w, h:this.h}; }
+
+    center(){
+      return { cx: this.x + this.w/2, cy: this.y + this.h/2 };
+    }
+
+    handleInput(dt){
+      if (this.dead) return;
+
+      const left = keys.has(this.controls.left);
+      const right = keys.has(this.controls.right);
+      const jump = keys.has(this.controls.jump);
+      const shootKey = keys.has(this.controls.shoot);
+
+      // horizontal movement
+      if (left && !right) {
+        this.vx -= MOVE_ACCEL * dt;
+        this.facing = -1;
+      } else if (right && !left) {
+        this.vx += MOVE_ACCEL * dt;
+        this.facing = 1;
+      } else {
+        // apply friction/drag
+        const drag = this.grounded ? FRICTION : AIR_DRAG;
+        if (this.vx > 0) {
+          this.vx = Math.max(0, this.vx - drag * dt);
+        } else if (this.vx < 0) {
+          this.vx = Math.min(0, this.vx + drag * dt);
+        }
+      }
+      // clamp horizontal speed
+      this.vx = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, this.vx));
+
+      // jump
+      if (jump && this.canJump && this.grounded) {
+        this.vy = -JUMP_SPEED;
+        this.grounded = false;
+        this.canJump = false;
+      }
+      if (!jump) this.canJump = true;
+
+      // shoot
+      if (shootKey && this.shootCooldown <= 0) {
+        spawnBullet(this);
+        this.shootCooldown = BULLET_COOLDOWN;
+      }
+    }
+
+    applyPhysics(dt){
+      if (this.dead) return;
+
+      // gravity
+      this.vy += GRAVITY * dt;
+
+      // position update
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+
+      // collisions with platforms
+      this.grounded = false;
+      for (const p of platforms) {
+        // AABB collision resolution – only simple vertical resolve to feel brawly
+        if (rectsIntersect(this.getRect(), p)) {
+          const prevY = this.y - this.vy * dt;
+          const prevX = this.x - this.vx * dt;
+          // Try to resolve from top
+          const fromTop = (prevY + this.h) <= p.y && this.vy > 0;
+          const fromBottom = prevY >= (p.y + p.h) && this.vy < 0;
+          const fromLeft = (prevX + this.w) <= p.x && this.vx > 0;
+          const fromRight = prevX >= (p.x + p.w) && this.vx < 0;
+
+          if (fromTop) {
+            this.y = p.y - this.h;
+            this.vy = 0;
+            if (p.y === ARENA.floorY()) this.grounded = true;
+            else this.grounded = true; // treat platforms as ground for jump
+          } else if (fromBottom) {
+            this.y = p.y + p.h;
+            this.vy = 0;
+          } else if (fromLeft) {
+            this.x = p.x - this.w;
+            this.vx = Math.min(this.vx, 0);
+          } else if (fromRight) {
+            this.x = p.x + p.w;
+            this.vx = Math.max(this.vx, 0);
+          }
+        }
+      }
+
+      // arena bounds
+      const W = ARENA.w(), H = ARENA.h();
+      if (this.x < 0) { this.x = 0; this.vx = 0; }
+      if (this.x + this.w > W) { this.x = W - this.w; this.vx = 0; }
+
+      // off the bottom = KO
+      if (this.y > H + 200 && !this.dead) {
+        this.takeDamage(MAX_HP, {kx: 0, ky: 0}, null, true);
+      }
+    }
+
+    takeDamage(amount, knock, attacker, isFall=false){
+      if (this.dead) return;
+      this.hp -= amount;
+      this.vx += knock.kx;
+      this.vy += knock.ky;
+      if (this.hp <= 0 || isFall) {
+        this.dead = true;
+        this.respawnTimer = RESPAWN_TIME;
+        this.hp = 0;
+        if (attacker && attacker !== this) attacker.score++;
+      }
+    }
+
+    update(dt){
+      if (this.dead) {
+        this.respawnTimer -= dt;
+        if (this.respawnTimer <= 0) this.respawn();
+        return;
+      }
+      this.shootCooldown -= dt;
+      this.handleInput(dt);
+      this.applyPhysics(dt);
+    }
+
+    respawn(){
+      this.dead = false;
+      this.hp = MAX_HP;
+      this.vx = 0;
+      this.vy = 0;
+      const W = ARENA.w(), F = ARENA.floorY();
+      if (this.id === 1) {
+        this.x = W*0.18; this.y = F - this.h - 6; this.facing = 1;
+      } else {
+        this.x = W*0.74; this.y = F - this.h - 6; this.facing = -1;
+      }
+    }
+
+    draw(ctx){
+      // body
+      ctx.save();
+      ctx.translate(this.x, this.y);
+
+      // shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(this.w/2, this.h, this.w*0.45, 10, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // body
+      const bodyGrad = ctx.createLinearGradient(0, 0, 0, this.h);
+      bodyGrad.addColorStop(0, shade(this.color, 0.2));
+      bodyGrad.addColorStop(1, shade(this.color, -0.25));
+      ctx.fillStyle = bodyGrad;
+      roundRect(ctx, 0, 0, this.w, this.h, 10, true, false);
+
+      // face
+      ctx.fillStyle = '#fff';
+      roundRect(ctx, 6, 10, this.w-12, 18, 8, true, false);
+      // eyes
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.arc(this.w/2 - 8, 19, 4, 0, Math.PI*2);
+      ctx.arc(this.w/2 + 8, 19, 4, 0, Math.PI*2);
+      ctx.fill();
+
+      // gun muzzle indicator
+      ctx.fillStyle = '#ffdd55';
+      const muzzleX = this.facing === 1 ? this.w-6 : 6;
+      ctx.fillRect(muzzleX-2, this.h*0.55, 4, 4);
+
+      ctx.restore();
+
+      // health bar
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillRect(this.x, this.y - 12, this.w, 6);
+      ctx.fillStyle = this.color;
+      ctx.fillRect(this.x, this.y - 12, this.w * (this.hp / MAX_HP), 6);
+
+      // name
+      ctx.fillStyle = '#fff';
+      ctx.font = '12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(this.name, this.x + this.w/2, this.y - 18);
+    }
+  }
+
+  // Bot controller for Player 2
+  class BotController {
+    constructor(player, target){
+      this.player = player;
+      this.target = target;
+      this.fireTimer = 0;
+      this.moveTimer = 0;
+      this.desiredDir = 0; // -1 left, 1 right, 0 idle
+    }
+    update(dt){
+      const me = this.player;
+      const enemy = this.target;
+      if (me.dead) return;
+
+      // Aim facing toward enemy center
+      const mc = me.center(), ec = enemy.center();
+      me.facing = mc.cx < ec.cx ? 1 : -1;
+
+      // Pick movement bias periodically
+      this.moveTimer -= dt;
+      if (this.moveTimer <= 0) {
+        // Bias: move toward enemy, occasionally jump
+        const dx = ec.cx - mc.cx;
+        this.desiredDir = Math.sign(dx) || (Math.random() < 0.5 ? -1 : 1);
+        this.moveTimer = 0.5 + Math.random()*0.9;
+        // Jump if enemy is above and there's a platform below
+        const enemyAbove = ec.cy < mc.cy - 40;
+        if (enemyAbove && me.grounded && Math.random() < 0.7) {
+          // fake key press for jump
+          simulateJump(me);
+        } else if (me.grounded && Math.random() < 0.15) {
+          simulateJump(me);
+        }
+      }
+
+      // Apply move intent
+      if (this.desiredDir === -1) me.vx = Math.max(me.vx - MOVE_ACCEL*dt, -MAX_SPEED);
+      else if (this.desiredDir === 1) me.vx = Math.min(me.vx + MOVE_ACCEL*dt, MAX_SPEED);
+      else me.vx = me.vx; // let friction handle
+
+      // Fire with predictive lead
+      this.fireTimer -= dt;
+      if (this.fireTimer <= 0) {
+        const lead = predictLead(me.center(), enemy.center(), enemy.vx, enemy.vy);
+        const angle = Math.atan2(lead.y - mc.cy, lead.x - mc.cx);
+        me.facing = Math.cos(angle) >= 0 ? 1 : -1;
+        spawnBullet(me, angle);
+        this.fireTimer = 0.25 + Math.random()*0.4;
+      }
+    }
+  }
+
+  // Bullets
+  const bullets = [];
+  function spawnBullet(player, angle=null){
+    if (player.dead) return;
+    if (player.shootCooldown > 0) return;
+
+    const { cx, cy } = player.center();
+    const muzzleX = player.facing === 1 ? player.x + player.w - 6 : player.x + 6;
+    const muzzleY = player.y + player.h*0.55;
+
+    // If angle is not provided, shoot horizontally by facing
+    const theta = angle ?? (player.facing === 1 ? 0 : Math.PI);
+    const vx = Math.cos(theta) * BULLET_SPEED;
+    const vy = Math.sin(theta) * BULLET_SPEED;
+
+    bullets.push({
+      x: muzzleX,
+      y: muzzleY,
+      vx, vy,
+      owner: player,
+      life: BULLET_LIFETIME,
+      radius: 5,
+      color: '#ffd966'
+    });
+  }
+
+  function updateBullets(dt){
+    for (let i=bullets.length-1; i>=0; i--){
+      const b = bullets[i];
+      b.life -= dt;
+      if (b.life <= 0) { bullets.splice(i,1); continue; }
+
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+
+      // Collide with platforms
+      for (const p of platforms) {
+        if (circleRectIntersect(b.x, b.y, b.radius, p)) {
+          bullets.splice(i,1);
+          break;
+        }
+      }
+      if (!bullets[i]) continue;
+
+      // Hit players (not owner)
+      for (const pl of players) {
+        if (pl.dead) continue;
+        if (pl === b.owner) continue;
+        if (circleRectIntersect(b.x, b.y, b.radius, pl.getRect())) {
+          // Apply damage and knockback
+          const dx = pl.center().cx - b.x;
+          const dy = pl.center().cy - b.y;
+          const len = Math.hypot(dx, dy) || 1;
+          const kx = BULLET_KNOCKBACK * (dx/len);
+          const ky = BULLET_KNOCKBACK * (dy/len);
+          pl.takeDamage(BULLET_DAMAGE, {kx, ky}, b.owner);
+          bullets.splice(i,1);
+          break;
+        }
+      }
+    }
+  }
+
+  function drawBullets(ctx){
+    for (const b of bullets) {
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius, 0, Math.PI*2);
+      ctx.fill();
+      // tracer
+      ctx.strokeStyle = 'rgba(255,217,102,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(b.x - b.vx*0.02, b.y - b.vy*0.02);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  }
+
+  // Utility collision
+  function rectsIntersect(a, b){
+    return a.x < b.x + b.w && a.x + a.w > b.x &&
+           a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+  function circleRectIntersect(cx, cy, r, rect){
+    const nx = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+    const ny = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+    const dx = cx - nx;
+    const dy = cy - ny;
+    return (dx*dx + dy*dy) <= r*r;
+  }
+
+  // Visual helpers
+  function roundRect(ctx, x, y, w, h, r, fill, stroke){
+    if (w < 2*r) r = w/2;
+    if (h < 2*r) r = h/2;
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+  function shade(hex, amt){
+    // naive shade for #rrggbb
+    const c = hex.replace('#','');
+    const r = Math.max(0, Math.min(255, parseInt(c.substring(0,2),16) + Math.round(255*amt)));
+    const g = Math.max(0, Math.min(255, parseInt(c.substring(2,4),16) + Math.round(255*amt)));
+    const b = Math.max(0, Math.min(255, parseInt(c.substring(4,6),16) + Math.round(255*amt)));
+    return '#' + r.toString(16).padStart(2,'0') + g.toString(16).padStart(2,'0') + b.toString(16).padStart(2,'0');
+  }
+
+  // Predictive lead for bot firing
+  function predictLead(shooter, target, tvx, tvy){
+    // Solve for time assuming straight bullet, no gravity
+    const dx = target.x - shooter.cx;
+    const dy = target.y - shooter.cy;
+    const vx = tvx, vy = tvy;
+    // Quadratic: |(dx + vx t, dy + vy t)| = BULLET_SPEED * t
+    const a = vx*vx + vy*vy - BULLET_SPEED*BULLET_SPEED;
+    const b = 2*(dx*vx + dy*vy);
+    const c = dx*dx + dy*dy;
+    let t;
+    if (Math.abs(a) < 1e-6) {
+      t = c / Math.max(1e-3, -b);
+    } else {
+      const disc = b*b - 4*a*c;
+      if (disc < 0) t = 0.0;
+      else {
+        const t1 = (-b + Math.sqrt(disc)) / (2*a);
+        const t2 = (-b - Math.sqrt(disc)) / (2*a);
+        t = Math.min(t1, t2);
+        if (t < 0) t = Math.max(t1, t2);
+        if (t < 0) t = 0.0;
+      }
+    }
+    return { x: target.x + vx*t, y: target.y + vy*t };
+  }
+
+  function simulateJump(player){
+    if (player.grounded) {
+      player.vy = -JUMP_SPEED;
+      player.grounded = false;
+    }
+  }
+
+  // Players setup
+  const p1 = new Player(1, '#5ec4ff', ARENA.w()*0.18, ARENA.floorY()-58-6, {
+    left: 'KeyA',
+    right: 'KeyD',
+    jump: 'KeyW',
+    shoot: 'KeyF',
+    name: 'Player 1'
+  });
+  const p2 = new Player(2, '#ff7ab6', ARENA.w()*0.74, ARENA.floorY()-58-6, {
+    left: 'ArrowLeft',
+    right: 'ArrowRight',
+    jump: 'ArrowUp',
+    shoot: 'ShiftRight',
+    name: 'Player 2'
+  });
+
+  let players = [p1, p2];
+  let bot = null;
+
+  function applyBotState(){
+    if (botToggle.checked) {
+      bot = new BotController(p2, p1);
+      p2.name = 'Bot';
+    } else {
+      bot = null;
+      p2.name = 'Player 2';
+    }
+  }
+  applyBotState();
+  botToggle.addEventListener('change', applyBotState);
+
+  // Restart
+  restartBtn.addEventListener('click', ()=>{
+    bullets.length = 0;
+    p1.score = 0; p2.score = 0;
+    p1.hp = MAX_HP; p2.hp = MAX_HP;
+    p1.dead = false; p2.dead = false;
+    p1.respawn(); p2.respawn();
+  });
+
+  // Game loop
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(0.033, (now - last)/1000);
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function update(dt){
+    // Update bot input before physics
+    if (bot) bot.update(dt);
+
+    for (const pl of players) pl.update(dt);
+    updateBullets(dt);
+
+    // HUD
+    hud.textContent =
+      `P1 HP ${p1.hp} | Score ${p1.score}    ` +
+      `${bot ? 'Bot' : 'P2'} HP ${p2.hp} | Score ${p2.score}`;
+  }
+
+  function draw(){
+    const W = ARENA.w(), H = ARENA.h();
+
+    // Background ambiance
+    ctx.clearRect(0,0,W,H);
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, '#0f2027');
+    grad.addColorStop(0.4, '#203a43');
+    grad.addColorStop(1, '#2c5364');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+
+    // Parallax dots
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    for (let i=0;i<50;i++){
+      const x = (i*97)%W;
+      const y = (i*61)%H;
+      ctx.fillRect(x, y, 2, 2);
+    }
+
+    // Platforms
+    for (const p of platforms) {
+      const g = ctx.createLinearGradient(p.x, p.y, p.x, p.y+p.h);
+      g.addColorStop(0, '#36454f');
+      g.addColorStop(1, '#22282e');
+      ctx.fillStyle = g;
+      roundRect(ctx, p.x, p.y, p.w, p.h, 6, true, false);
+      // subtle top highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.fillRect(p.x, p.y, p.w, 2);
+    }
+
+    // Bullets
+    drawBullets(ctx);
+
+    // Players
+    for (const pl of players) pl.draw(ctx);
+
+    // KO text
+    for (const pl of players) {
+      if (pl.dead){
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 18px system-ui';
+        ctx.textAlign = 'center';
+        const {cx, cy} = pl.center();
+        ctx.fillText('KO', cx, cy - 24);
+      }
+    }
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Wobble Wars – Yeet Edition</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background: radial-gradient(circle at top, #1b1f3b 0, #050816 55%, #02030a 100%);
+    color: #f5f5ff;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding-top: 20px;
+  }
+  h1 {
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 6px;
+  }
+  #subtitle {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-bottom: 6px;
+  }
+  #info {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-bottom: 8px;
+  }
+  #status {
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+  }
+  #game-shell {
+    position: relative;
+    width: 900px;
+    max-width: 96vw;
+    aspect-ratio: 16 / 9;
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 60%),
+      linear-gradient(145deg, #151a3a, #050816);
+    box-shadow:
+      inset 0 0 0 2px rgba(0, 0, 0, 0.7),
+      0 18px 40px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+  }
+  #game {
+    position: absolute;
+    inset: 0;
+  }
+  #controls {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: radial-gradient(circle at top, #1b2140 0, #0b1020 60%, #050816 100%);
+    color: #f5f5ff;
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+  button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 0.25);
+    background: radial-gradient(circle at top, #252b52 0, #0b1020 60%, #050816 100%);
+  }
+  button:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+  #powerup-label {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+<h1>WOBBLE WARS</h1>
+<div id="subtitle">Yeet · Jump · Shove · Fall Off</div>
+<div id="info">
+  P1: A/D move, W jump, S shove, Left Shift yeet ·
+  P2: J/L move, I jump, K shove, Right Shift yeet
+</div>
+<div id="status">Press Space or New Round to start</div>
+
+<div id="game-shell">
+  <canvas id="game"></canvas>
+</div>
+
+<div id="controls">
+  <button id="btn-new">New Round</button>
+  <button id="btn-moon">Moon Gravity: OFF</button>
+  <button id="btn-chaos">Random Chaos</button>
+</div>
+<div id="powerup-label"></div>
+
+<script>
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const statusEl = document.getElementById("status");
+  const powerupLabel = document.getElementById("powerup-label");
+  const btnNew = document.getElementById("btn-new");
+  const btnMoon = document.getElementById("btn-moon");
+  const btnChaos = document.getElementById("btn-chaos");
+
+  function resizeCanvas() {
+    const shell = document.getElementById("game-shell");
+    const rect = shell.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+  }
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  let running = false;
+  let moonGravity = false;
+  let chaosMode = false;
+
+  const arena = {
+    x: 0.12,
+    y: 0.7,
+    w: 0.76,
+    h: 0.06,
+    tilt: 0,
+    slippery: false,
+    bouncy: false
+  };
+
+  const players = [
+    {
+      name: "Player 1",
+      color: "#ff4b8b",
+      x: 0.3,
+      y: 0.3,
+      vx: 0,
+      vy: 0,
+      wobblePhase: 0,
+      onGround: false,
+      alive: true,
+      mass: 1,
+      reverse: false,
+      wobbleScale: 1,
+      yeetCharge: 0,
+      isYeeting: false,
+      shoveCooldown: 0,
+      shoving: false,
+      controls: {
+        left: "KeyA",
+        right: "KeyD",
+        jump: "KeyW",
+        shove: "KeyS",
+        yeet: "ShiftLeft"
+      }
+    },
+    {
+      name: "Player 2",
+      color: "#4bd3ff",
+      x: 0.7,
+      y: 0.3,
+      vx: 0,
+      vy: 0,
+      wobblePhase: 0,
+      onGround: false,
+      alive: true,
+      mass: 1,
+      reverse: false,
+      wobbleScale: 1,
+      yeetCharge: 0,
+      isYeeting: false,
+      shoveCooldown: 0,
+      shoving: false,
+      controls: {
+        left: "KeyJ",
+        right: "KeyL",
+        jump: "KeyI",
+        shove: "KeyK",
+        yeet: "ShiftRight"
+      }
+    }
+  ];
+
+  const keys = {};
+  window.addEventListener("keydown", e => {
+    keys[e.code] = true;
+    if (e.code === "Space" && !running) startRound();
+  });
+  window.addEventListener("keyup", e => {
+    keys[e.code] = false;
+  });
+
+  btnNew.addEventListener("click", () => {
+    chaosMode = false;
+    powerupLabel.textContent = "";
+    startRound();
+  });
+
+  btnMoon.addEventListener("click", () => {
+    moonGravity = !moonGravity;
+    btnMoon.textContent = moonGravity ? "Moon Gravity: ON" : "Moon Gravity: OFF";
+  });
+
+  btnChaos.addEventListener("click", () => {
+    chaosMode = true;
+    startRound(true);
+  });
+
+  function resetPlayers() {
+    players[0].x = 0.3;
+    players[0].y = 0.3;
+    players[0].vx = 0;
+    players[0].vy = 0;
+    players[0].alive = true;
+    players[0].onGround = false;
+    players[0].wobblePhase = 0;
+    players[0].yeetCharge = 0;
+    players[0].isYeeting = false;
+    players[0].shoveCooldown = 0;
+    players[0].shoving = false;
+
+    players[1].x = 0.7;
+    players[1].y = 0.3;
+    players[1].vx = 0;
+    players[1].vy = 0;
+    players[1].alive = true;
+    players[1].onGround = false;
+    players[1].wobblePhase = 0;
+    players[1].yeetCharge = 0;
+    players[1].isYeeting = false;
+    players[1].shoveCooldown = 0;
+    players[1].shoving = false;
+  }
+
+  function resetArenaDefaults() {
+    arena.tilt = 0;
+    arena.w = 0.76;
+    arena.h = 0.06;
+    arena.slippery = false;
+    arena.bouncy = false;
+    moonGravity = false;
+    players.forEach(p => {
+      p.mass = 1;
+      p.reverse = false;
+      p.wobbleScale = 1;
+    });
+    btnMoon.textContent = "Moon Gravity: OFF";
+  }
+
+  function randomChaos() {
+    const effects = [
+      "Moon Gravity",
+      "Slippery Floor",
+      "Reverse Controls",
+      "Tiny Arena",
+      "Bouncy Arena",
+      "Heavy Bodies",
+      "Super Wobble",
+      "Tilted Stage"
+    ];
+    const pick = effects[Math.floor(Math.random() * effects.length)];
+    powerupLabel.textContent = "Chaos: " + pick;
+
+    resetArenaDefaults();
+
+    switch (pick) {
+      case "Moon Gravity":
+        moonGravity = true;
+        btnMoon.textContent = "Moon Gravity: ON";
+        break;
+      case "Slippery Floor":
+        arena.slippery = true;
+        break;
+      case "Reverse Controls":
+        players.forEach(p => p.reverse = true);
+        break;
+      case "Tiny Arena":
+        arena.w = 0.5;
+        break;
+      case "Bouncy Arena":
+        arena.bouncy = true;
+        break;
+      case "Heavy Bodies":
+        players.forEach(p => p.mass = 2);
+        break;
+      case "Super Wobble":
+        players.forEach(p => p.wobbleScale = 2);
+        break;
+      case "Tilted Stage":
+        arena.tilt = 0.15;
+        break;
+    }
+  }
+
+  function startRound(withChaos = false) {
+    resetArenaDefaults();
+    resetPlayers();
+    if (withChaos) randomChaos();
+    running = true;
+    statusEl.textContent = "Wobble, yeet, jump, shove!";
+  }
+
+  function update(dt) {
+    if (!running) return;
+
+    const g = moonGravity ? 300 : 650;
+    const ax = canvas.width * arena.x;
+    const ay = canvas.height * arena.y;
+    const aw = canvas.width * arena.w;
+    const ah = canvas.height * arena.h;
+
+    players.forEach(p => {
+      if (!p.alive) return;
+
+      const mass = p.mass || 1;
+      const wobbleScale = p.wobbleScale || 1;
+
+      let left = keys[p.controls.left];
+      let right = keys[p.controls.right];
+      if (p.reverse) [left, right] = [right, left];
+
+      const jumpKey = p.controls.jump;
+      const shoveKey = p.controls.shove;
+      const yeetKey = p.controls.yeet;
+
+      const moveForce = 900;
+
+      if (left) p.vx -= (moveForce / mass) * dt;
+      if (right) p.vx += (moveForce / mass) * dt;
+
+      // Jump
+      if (keys[jumpKey] && p.onGround) {
+        p.vy = -480;
+        p.onGround = false;
+      }
+
+      // Shove
+      p.shoveCooldown -= dt;
+      if (keys[shoveKey] && p.shoveCooldown <= 0) {
+        p.shoving = true;
+        p.shoveCooldown = 0.45;
+      } else {
+        // will be reset after collision step
+      }
+
+      // Yeet charge
+      if (keys[yeetKey]) {
+        p.yeetCharge = Math.min(p.yeetCharge + dt * 3, 1);
+      } else {
+        if (p.yeetCharge > 0) {
+          p.isYeeting = true;
+          const dir = p.vx >= 0 ? 1 : -1;
+          p.vx += dir * (1600 * p.yeetCharge);
+          p.vy -= 220 * p.yeetCharge;
+          p.yeetCharge = 0;
+        }
+      }
+
+      // Gravity
+      p.vy += (g / mass) * dt;
+
+      // Integrate
+      p.x += (p.vx * dt) / canvas.width;
+      p.y += (p.vy * dt) / canvas.height;
+
+      // Arena collision (approx flat)
+      const px = p.x * canvas.width;
+      const py = p.y * canvas.height;
+      const radius = canvas.height * 0.06;
+
+      // Transform point into arena tilt space
+      const cx = ax + aw / 2;
+      const cy = ay + ah / 2;
+      const dx = px - cx;
+      const dy = py - cy;
+      const cosT = Math.cos(-arena.tilt);
+      const sinT = Math.sin(-arena.tilt);
+      const rx = dx * cosT - dy * sinT;
+      const ry = dx * sinT + dy * cosT;
+
+      const halfW = aw / 2;
+      const top = -ah / 2;
+
+      let onPlatform = false;
+      if (ry + radius > top && ry + radius < top + ah + radius &&
+          rx > -halfW - radius && rx < halfW + radius) {
+        onPlatform = true;
+      }
+
+      if (onPlatform && p.vy > 0) {
+        // snap to platform
+        const newRy = top - radius;
+        const ndx = newRy * sinT + rx * cosT;
+        const ndy = newRy * cosT - rx * sinT;
+        p.y = (cy + ndy) / canvas.height;
+        p.vy *= arena.bouncy ? -0.6 : 0;
+        p.onGround = true;
+        if (!arena.slippery) p.vx *= 0.88;
+      } else {
+        p.onGround = false;
+      }
+
+      // Drag
+      p.vx *= 0.995;
+      p.vy *= 0.999;
+
+      const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      p.wobblePhase += speed * dt * 40 * wobbleScale;
+    });
+
+    // Player-player collision and combat
+    const r = canvas.height * 0.06;
+    const minDist = r * 2;
+    const p0 = players[0];
+    const p1 = players[1];
+
+    if (p0.alive && p1.alive) {
+      const dx = (p1.x - p0.x) * canvas.width;
+      const dy = (p1.y - p0.y) * canvas.height;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 0 && dist < minDist) {
+        const overlap = (minDist - dist) / dist;
+        const nx = dx * overlap * 0.5 / canvas.width;
+        const ny = dy * overlap * 0.5 / canvas.height;
+
+        p0.x -= nx;
+        p0.y -= ny;
+        p1.x += nx;
+        p1.y += ny;
+
+        const nxn = dx / dist;
+        const nyn = dy / dist;
+
+        // Base bump
+        const bump = 260;
+        p0.vx -= nxn * bump * dt;
+        p0.vy -= nyn * bump * dt;
+        p1.vx += nxn * bump * dt;
+        p1.vy += nyn * bump * dt;
+
+        // Yeet hits
+        if (p0.isYeeting) {
+          p1.vx += nxn * 1400;
+          p1.vy -= 320;
+        }
+        if (p1.isYeeting) {
+          p0.vx -= nxn * 1400;
+          p0.vy -= 320;
+        }
+
+        // Shove hits (short range, safer)
+        if (p0.shoving && dist < minDist * 1.2) {
+          p1.vx += nxn * 600;
+          p1.vy -= 120;
+        }
+        if (p1.shoving && dist < minDist * 1.2) {
+          p0.vx -= nxn * 600;
+          p0.vy -= 120;
+        }
+
+        // Jump stomp: higher player squashes lower
+        if (p0.y < p1.y && p0.vy > 200) {
+          p1.vx += (Math.random() - 0.5) * 700;
+          p1.vy -= 420;
+        }
+        if (p1.y < p0.y && p1.vy > 200) {
+          p0.vx += (Math.random() - 0.5) * 700;
+          p0.vy -= 420;
+        }
+      }
+    }
+
+    // Reset one-frame flags
+    players.forEach(p => {
+      p.isYeeting = false;
+      p.shoving = false;
+    });
+
+    // Out-of-bounds
+    players.forEach(p => {
+      if (!p.alive) return;
+      const margin = 0.25;
+      if (p.x < -margin || p.x > 1 + margin || p.y < -margin || p.y > 1 + margin) {
+        p.alive = false;
+      }
+    });
+
+    const alive = players.filter(p => p.alive);
+    if (alive.length <= 1) {
+      running = false;
+      if (alive.length === 1) {
+        statusEl.textContent = `${alive[0].name} wins! Press Space or New Round`;
+      } else {
+        statusEl.textContent = "Double yeet! It's a draw. Press Space or New Round";
+      }
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const bgGrad = ctx.createRadialGradient(
+      canvas.width / 2,
+      canvas.height * 0.2,
+      10,
+      canvas.width / 2,
+      canvas.height * 0.2,
+      canvas.height
+    );
+    bgGrad.addColorStop(0, "rgba(255,255,255,0.08)");
+    bgGrad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const ax = canvas.width * arena.x;
+    const ay = canvas.height * arena.y;
+    const aw = canvas.width * arena.w;
+    const ah = canvas.height * arena.h;
+
+    ctx.save();
+    ctx.translate(ax + aw / 2, ay + ah / 2);
+    ctx.rotate(arena.tilt);
+    ctx.fillStyle = "#11162b";
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    const rad = ah / 2;
+    ctx.moveTo(-aw / 2 + rad, -ah / 2);
+    ctx.lineTo(aw / 2 - rad, -ah / 2);
+    ctx.quadraticCurveTo(aw / 2, -ah / 2, aw / 2, -ah / 2 + rad);
+    ctx.lineTo(aw / 2, ah / 2 - rad);
+    ctx.quadraticCurveTo(aw / 2, ah / 2, aw / 2 - rad, ah / 2);
+    ctx.lineTo(-aw / 2 + rad, ah / 2);
+    ctx.quadraticCurveTo(-aw / 2, ah / 2, -aw / 2, ah / 2 - rad);
+    ctx.lineTo(-aw / 2, -ah / 2 + rad);
+    ctx.quadraticCurveTo(-aw / 2, -ah / 2, -aw / 2 + rad, -ah / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    players.forEach(p => {
+      const px = p.x * canvas.width;
+      const py = p.y * canvas.height;
+      const baseR = canvas.height * 0.06;
+      const wobble = Math.sin(p.wobblePhase) * baseR * 0.18;
+      const rx = baseR + wobble;
+      const ry = baseR - wobble;
+
+      ctx.save();
+      ctx.translate(px, py);
+
+      // Shadow
+      ctx.save();
+      ctx.translate(0, baseR * 0.9);
+      ctx.scale(1.2, 0.4);
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, baseR, baseR * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Body
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Face
+      const eyeOffsetX = baseR * 0.35;
+      const eyeOffsetY = -baseR * 0.1;
+      const eyeR = baseR * 0.18;
+
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(-eyeOffsetX, eyeOffsetY, eyeR, 0, Math.PI * 2);
+      ctx.arc(eyeOffsetX, eyeOffsetY, eyeR, 0, Math.PI * 2);
+      ctx.fill();
+
+      const lookDir = Math.sign(p.vx || 0.0001);
+      const pupilOffset = eyeR * 0.4 * lookDir;
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(-eyeOffsetX + pupilOffset, eyeOffsetY, eyeR * 0.5, 0, Math.PI * 2);
+      ctx.arc(eyeOffsetX + pupilOffset, eyeOffsetY, eyeR * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Mouth (change with yeet / hit vibes)
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const mouthW = baseR * 0.6;
+      const mouthY = baseR * 0.25;
+      const angry = p.isYeeting ? -0.4 : (p.vy < -200 ? -0.2 : 0.2);
+      ctx.arc(0, mouthY, mouthW / 2, (0.2 + angry) * Math.PI, (0.8 - angry) * Math.PI);
+      ctx.stroke();
+
+      ctx.restore();
+    });
+  }
+
+  let lastTime = performance.now();
+  function loop(t) {
+    const dt = Math.min((t - lastTime) / 1000, 0.033);
+    lastTime = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>

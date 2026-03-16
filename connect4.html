@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Connect 4 – Enhanced</title>
+
+<style>
+  :root {
+    --rows: 6;
+    --cols: 7;
+    --cell-size: 70px;
+    --p1: #ff3366;
+    --p2: #33ccff;
+    --p1-glow: rgba(255, 51, 102, 0.7);
+    --p2-glow: rgba(51, 204, 255, 0.7);
+    --bg: #050816;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at top, #1b1f3b 0, #050816 55%, #02030a 100%);
+    color: #f5f5ff;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  h1 {
+    margin-bottom: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 1rem;
+    opacity: 0.9;
+  }
+
+  #status {
+    margin-bottom: 16px;
+    font-size: 0.95rem;
+    opacity: 0.9;
+  }
+
+  #board-shell {
+    padding: 14px 16px 16px;
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 60%),
+      linear-gradient(145deg, #151a3a, #050816);
+    box-shadow:
+      inset 0 0 0 2px rgba(0, 0, 0, 0.7),
+      0 18px 40px rgba(0, 0, 0, 0.8);
+  }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--cell-size));
+    grid-template-rows: repeat(var(--rows), var(--cell-size));
+    gap: 8px;
+  }
+
+  .cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border-radius: 999px;
+    background: radial-gradient(circle at 30% 20%, #1f2446, #050816 70%);
+    position: relative;
+    cursor: pointer;
+  }
+
+  .cell.disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  .disc {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 80%;
+    height: 80%;
+    border-radius: 999px;
+    transform: translate(-50%, -300%);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform 350ms cubic-bezier(0.18, 0.89, 0.32, 1.28),
+      opacity 200ms ease-out;
+  }
+
+  .disc.p1 {
+    background: radial-gradient(circle at 30% 20%, #ff99bb, var(--p1));
+    box-shadow:
+      0 0 18px var(--p1-glow),
+      0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .disc.p2 {
+    background: radial-gradient(circle at 30% 20%, #a8e6ff, var(--p2));
+    box-shadow:
+      0 0 18px var(--p2-glow),
+      0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .disc.visible {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+
+  .disc.winning {
+    animation: pulse 900ms ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: translate(-50%, -50%) scale(1);
+      box-shadow:
+        0 0 18px rgba(255, 255, 255, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.4);
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1.06);
+      box-shadow:
+        0 0 28px rgba(255, 255, 255, 1),
+        0 0 0 1px rgba(255, 255, 255, 0.8);
+    }
+  }
+
+  #controls {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  button, label {
+    color: #f5f5ff;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  button {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: radial-gradient(circle at top, #1b2140 0, #0b1020 60%, #050816 100%);
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 0.25);
+    background: radial-gradient(circle at top, #252b52 0, #0b1020 60%, #050816 100%);
+  }
+
+  button:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  input[type="color"] {
+    margin-left: 6px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>CONNECT 4 · ENHANCED</h1>
+<div id="status">Player 1 to move</div>
+
+<div id="board-shell">
+  <div id="board"></div>
+</div>
+
+<div id="controls">
+  <button id="btn-new">New Round</button>
+  <button id="btn-bot">Bot: OFF</button>
+
+  <label>P1 <input type="color" id="p1-color" value="#ff3366"></label>
+  <label>P2 <input type="color" id="p2-color" value="#33ccff"></label>
+</div>
+
+<script>
+  const ROWS = 6;
+  const COLS = 7;
+
+  const boardEl = document.getElementById("board");
+  const statusEl = document.getElementById("status");
+  const btnNew = document.getElementById("btn-new");
+  const btnBot = document.getElementById("btn-bot");
+
+  const p1ColorPicker = document.getElementById("p1-color");
+  const p2ColorPicker = document.getElementById("p2-color");
+
+  let board = [];
+  let currentPlayer = 1;
+  let gameOver = false;
+  let botEnabled = false;
+
+  const cells = [];
+  const cellRefs = Array.from({ length: ROWS }, () => Array(COLS));
+
+  function initBoardState() {
+    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    currentPlayer = 1;
+    gameOver = false;
+    statusEl.textContent = "Player 1 to move";
+    resetUI();
+  }
+
+  function buildGrid() {
+    boardEl.innerHTML = "";
+    cells.length = 0;
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        cell.addEventListener("click", onCellClick);
+
+        const disc = document.createElement("div");
+        disc.className = "disc";
+        cell.appendChild(disc);
+
+        boardEl.appendChild(cell);
+        cells.push(cell);
+        cellRefs[r][c] = cell;
+      }
+    }
+  }
+
+  function resetUI() {
+    cells.forEach(cell => {
+      cell.classList.remove("disabled");
+      const disc = cell.querySelector(".disc");
+      disc.className = "disc";
+      disc.style.opacity = "0";
+      disc.style.transform = "translate(-50%, -300%)";
+      disc.style.transitionDelay = "0ms";
+    });
+  }
+
+  function onCellClick(e) {
+    if (gameOver) return;
+    if (botEnabled && currentPlayer === 2) return;
+
+    const col = Number(e.currentTarget.dataset.col);
+    const row = getAvailableRow(col);
+    if (row === -1) return;
+
+    handleMove(row, col, currentPlayer);
+
+    if (botEnabled && currentPlayer === 2 && !gameOver) {
+      setTimeout(botMove, 400);
+    }
+  }
+
+  function handleMove(row, col, player) {
+    placeDisc(row, col, player);
+
+    if (checkWin(row, col, player)) {
+      statusEl.textContent = player === 2 && botEnabled ? "Bot wins" : `Player ${player} wins`;
+      gameOver = true;
+      highlightWinning(row, col, player);
+      disableFullInteraction();
+      return;
+    }
+
+    if (isBoardFull()) {
+      statusEl.textContent = "It's a draw";
+      gameOver = true;
+      disableFullInteraction();
+      return;
+    }
+
+    currentPlayer = player === 1 ? 2 : 1;
+    statusEl.textContent = botEnabled && currentPlayer === 2 ? "Bot to move" : `Player ${currentPlayer} to move`;
+  }
+
+  function botMove() {
+    if (gameOver) return;
+
+    const validCols = [];
+    for (let c = 0; c < COLS; c++) {
+      if (getAvailableRow(c) !== -1) validCols.push(c);
+    }
+    if (validCols.length === 0) return;
+
+    const col = validCols[Math.floor(Math.random() * validCols.length)];
+    const row = getAvailableRow(col);
+    handleMove(row, col, 2);
+  }
+
+  function getAvailableRow(col) {
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (board[r][col] === 0) return r;
+    }
+    return -1;
+  }
+
+  function placeDisc(row, col, player) {
+    board[row][col] = player;
+
+    const cell = cellRefs[row][col];
+    const disc = cell.querySelector(".disc");
+
+    disc.classList.add(player === 1 ? "p1" : "p2");
+    disc.style.opacity = "1";
+
+    // Delay based on row to simulate gravity (lower rows fall later)
+    const delay = row * 60; // ms
+    disc.style.transitionDelay = delay + "ms";
+
+    // Start above, then drop to center
+    disc.style.transform = "translate(-50%, -300%)";
+    requestAnimationFrame(() => {
+      disc.classList.add("visible");
+      disc.style.transform = "translate(-50%, -50%)";
+    });
+  }
+
+  function checkWin(row, col, player) {
+    const dirs = [
+      [1, 0],
+      [0, 1],
+      [1, 1],
+      [1, -1],
+    ];
+
+    for (const [dr, dc] of dirs) {
+      let count = 1;
+
+      let r = row + dr;
+      let c = col + dc;
+      while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+        count++;
+        r += dr;
+        c += dc;
+      }
+
+      r = row - dr;
+      c = col - dc;
+      while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+        count++;
+        r -= dr;
+        c -= dc;
+      }
+
+      if (count >= 4) return true;
+    }
+
+    return false;
+  }
+
+  function highlightWinning(row, col, player) {
+    const dirs = [
+      [1, 0],
+      [0, 1],
+      [1, 1],
+      [1, -1],
+    ];
+
+    for (const [dr, dc] of dirs) {
+      let line = [[row, col]];
+
+      let r = row + dr;
+      let c = col + dc;
+      while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+        line.push([r, c]);
+        r += dr;
+        c += dc;
+      }
+
+      r = row - dr;
+      c = col - dc;
+      while (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+        line.unshift([r, c]);
+        r -= dr;
+        c -= dc;
+      }
+
+      if (line.length >= 4) {
+        line.forEach(([rr, cc]) => {
+          const disc = cellRefs[rr][cc].querySelector(".disc");
+          disc.classList.add("winning");
+        });
+        return;
+      }
+    }
+  }
+
+  function isBoardFull() {
+    return board.every(row => row.every(v => v !== 0));
+  }
+
+  function disableFullInteraction() {
+    cells.forEach(cell => cell.classList.add("disabled"));
+  }
+
+  btnNew.addEventListener("click", initBoardState);
+
+  btnBot.addEventListener("click", () => {
+    botEnabled = !botEnabled;
+    btnBot.textContent = botEnabled ? "Bot: ON" : "Bot: OFF";
+    if (!gameOver) {
+      statusEl.textContent = botEnabled && currentPlayer === 2
+        ? "Bot to move"
+        : `Player ${currentPlayer} to move`;
+    }
+  });
+
+  p1ColorPicker.addEventListener("input", e => {
+    const col = e.target.value;
+    document.documentElement.style.setProperty("--p1", col);
+    document.documentElement.style.setProperty("--p1-glow", hexToRgba(col, 0.7));
+  });
+
+  p2ColorPicker.addEventListener("input", e => {
+    const col = e.target.value;
+    document.documentElement.style.setProperty("--p2", col);
+    document.documentElement.style.setProperty("--p2-glow", hexToRgba(col, 0.7));
+  });
+
+  function hexToRgba(hex, alpha) {
+    const h = hex.replace("#", "");
+    const bigint = parseInt(h, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  buildGrid();
+  initBoardState();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Neon Runner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #050816;
+      --accent: #00f6ff;
+      --accent-soft: #00f6ff33;
+      --danger: #ff3366;
+      --text: #f5f5f5;
+      --panel: #0b1020;
+      --panel-soft: #0b1020dd;
+      --shadow-strong: 0 0 40px rgba(0, 246, 255, 0.4);
+      --shadow-soft: 0 0 20px rgba(0, 246, 255, 0.2);
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --transition-fast: 0.18s ease-out;
+      --font-main: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top, #151b3a 0, #050816 55%, #02030a 100%);
+      color: var(--text);
+      font-family: var(--font-main);
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .game-shell {
+      position: relative;
+      width: min(960px, 100%);
+      aspect-ratio: 16 / 9;
+      background: radial-gradient(circle at top, #151b3a 0, #050816 60%, #02030a 100%);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-strong);
+      overflow: hidden;
+      border: 1px solid #1b2344;
+    }
+
+    .game-shell::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background:
+        radial-gradient(circle at 10% 0, #00f6ff11 0, transparent 55%),
+        radial-gradient(circle at 90% 0, #ff336611 0, transparent 55%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .hud {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 18px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .badge {
+      pointer-events: auto;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #11172f, #050816);
+      border: 1px solid #1f2748;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #c7d2ff;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent) 0, #00f6ff00 70%);
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .score-panel {
+      pointer-events: auto;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #0b1020ee, #050816ee);
+      border: 1px solid #1f2748;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 13px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .score-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #9ca8ff;
+    }
+
+    .score-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f9fbff;
+      text-shadow: 0 0 10px #00f6ff55;
+    }
+
+    .score-sub {
+      font-size: 11px;
+      color: #a0aec0;
+    }
+
+    .pill {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #11172f;
+      border: 1px solid #252f55;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .key {
+      min-width: 20px;
+      padding: 3px 6px;
+      border-radius: 6px;
+      border: 1px solid #2a355f;
+      background: #050816;
+      box-shadow: 0 2px 0 #000000aa;
+      font-size: 10px;
+      text-align: center;
+    }
+
+    .key-label {
+      font-size: 11px;
+      color: #a0aec0;
+    }
+
+    .btn {
+      pointer-events: auto;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #2a355f;
+      background: radial-gradient(circle at top, #1b2344, #050816);
+      color: #e2e8f0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast),
+        border-color var(--transition-fast), background var(--transition-fast);
+      box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 18px rgba(0, 246, 255, 0.35);
+      border-color: var(--accent);
+      background: radial-gradient(circle at top, #222b55, #050816);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 0 10px rgba(0, 246, 255, 0.25);
+    }
+
+    .btn-primary {
+      border-color: var(--accent);
+      box-shadow: 0 0 18px rgba(0, 246, 255, 0.25);
+      color: #f9fbff;
+    }
+
+    .btn-primary span.dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent) 0, #00f6ff00 70%);
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .overlay-inner {
+      pointer-events: auto;
+      min-width: 260px;
+      max-width: 360px;
+      padding: 18px 20px 16px;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle at top, #151b3aee, #050816f5);
+      border: 1px solid #2a355f;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.7), var(--shadow-soft);
+      backdrop-filter: blur(14px);
+      text-align: left;
+      animation: overlay-in 0.25s ease-out;
+    }
+
+    .overlay-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .overlay-subtitle {
+      font-size: 12px;
+      color: #cbd5f5;
+      margin-bottom: 12px;
+    }
+
+    .overlay-metrics {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      font-size: 12px;
+    }
+
+    .metric {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #050816;
+      border: 1px solid #252f55;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #9ca8ff;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f9fbff;
+    }
+
+    .metric-note {
+      font-size: 10px;
+      color: #a0aec0;
+      margin-top: 2px;
+    }
+
+    .overlay-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .overlay-actions .btn {
+      flex: 1;
+      justify-content: center;
+    }
+
+    .overlay-hint {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #9ca8ff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .overlay-hint-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @keyframes overlay-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hud {
+        padding: 10px 12px;
+      }
+      .score-value {
+        font-size: 16px;
+      }
+      .overlay-inner {
+        padding: 14px 14px 12px;
+      }
+      .overlay-title {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell" id="game-shell">
+    <canvas id="game-canvas"></canvas>
+
+    <div class="hud">
+      <div class="hud-top">
+        <div class="badge">
+          <span class="badge-dot"></span>
+          <span>Neon Runner</span>
+        </div>
+
+        <div class="score-panel">
+          <div>
+            <div class="score-label">Score</div>
+            <div class="score-value" id="score-display">0</div>
+          </div>
+          <div>
+            <div class="score-label">Best</div>
+            <div class="score-sub" id="best-display">0</div>
+          </div>
+          <div>
+            <div class="score-label">Difficulty</div>
+            <div class="score-sub" id="difficulty-display">Normal</div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="primary-button">
+          <span class="dot"></span>
+          <span id="primary-button-label">Start</span>
+        </button>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="controls">
+          <div class="pill">
+            <span class="pill-dot"></span>
+            <span class="key-label">Move</span>
+            <span class="key">←</span>
+            <span class="key">→</span>
+          </div>
+          <div class="pill">
+            <span class="pill-dot"></span>
+            <span class="key-label">Pause</span>
+            <span class="key">P</span>
+          </div>
+        </div>
+        <div class="pill">
+          <span class="pill-dot"></span>
+          <span class="key-label">Tip: Collect cyan orbs, avoid red shards.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="overlay">
+      <div class="overlay-inner">
+        <div class="overlay-title">
+          <span id="overlay-title-text">Neon Runner</span>
+        </div>
+        <div class="overlay-subtitle" id="overlay-subtitle-text">
+          Glide through the neon stream, dodge shards, and collect energy orbs.
+        </div>
+
+        <div class="overlay-metrics">
+          <div class="metric">
+            <div class="metric-label">Score</div>
+            <div class="metric-value" id="overlay-score">0</div>
+            <div class="metric-note">Current run</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Best</div>
+            <div class="metric-value" id="overlay-best">0</div>
+            <div class="metric-note">Session high</div>
+          </div>
+        </div>
+
+        <div class="overlay-actions">
+          <button class="btn btn-primary" id="overlay-primary">
+            <span class="dot"></span>
+            <span id="overlay-primary-label">Play</span>
+          </button>
+          <button class="btn" id="overlay-secondary">
+            <span id="overlay-secondary-label">Close</span>
+          </button>
+        </div>
+
+        <div class="overlay-hint">
+          <span class="overlay-hint-dot"></span>
+          <span id="overlay-hint-text">
+            Use arrow keys to move. Survive as long as you can.
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Core game state ------------------------------------------------------
+    const canvas = document.getElementById("game-canvas");
+    const ctx = canvas.getContext("2d");
+
+    const shell = document.getElementById("game-shell");
+    const overlay = document.getElementById("overlay");
+    const overlayTitleText = document.getElementById("overlay-title-text");
+    const overlaySubtitleText = document.getElementById("overlay-subtitle-text");
+    const overlayScore = document.getElementById("overlay-score");
+    const overlayBest = document.getElementById("overlay-best");
+    const overlayPrimary = document.getElementById("overlay-primary");
+    const overlaySecondary = document.getElementById("overlay-secondary");
+    const overlayPrimaryLabel = document.getElementById("overlay-primary-label");
+    const overlaySecondaryLabel = document.getElementById("overlay-secondary-label");
+    const overlayHintText = document.getElementById("overlay-hint-text");
+
+    const scoreDisplay = document.getElementById("score-display");
+    const bestDisplay = document.getElementById("best-display");
+    const difficultyDisplay = document.getElementById("difficulty-display");
+    const primaryButton = document.getElementById("primary-button");
+    const primaryButtonLabel = document.getElementById("primary-button-label");
+
+    let width = 0;
+    let height = 0;
+
+    const gameState = {
+      running: false,
+      paused: false,
+      time: 0,
+      lastFrameTime: 0,
+      score: 0,
+      bestScore: 0,
+      difficulty: "Normal",
+      speedMultiplier: 1,
+      player: null,
+      obstacles: [],
+      pickups: [],
+      particles: [],
+      input: {
+        left: false,
+        right: false,
+      },
+    };
+
+    // --- Utility --------------------------------------------------------------
+    function resizeCanvas() {
+      const rect = shell.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      width = rect.width * dpr;
+      height = rect.height * dpr;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    function rand(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function clamp(v, min, max) {
+      return v < min ? min : v > max ? max : v;
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    // --- Entities -------------------------------------------------------------
+    function createPlayer() {
+      const shellRect = shell.getBoundingClientRect();
+      const baseWidth = shellRect.width;
+      const playerWidth = baseWidth * 0.04;
+      const playerHeight = playerWidth * 1.6;
+
+      return {
+        x: shellRect.width / 2,
+        y: shellRect.height * 0.78,
+        width: playerWidth,
+        height: playerHeight,
+        vx: 0,
+        speed: baseWidth * 0.35,
+        targetGlow: 0,
+        glow: 0,
+      };
+    }
+
+    function spawnObstacle() {
+      const shellRect = shell.getBoundingClientRect();
+      const baseWidth = shellRect.width;
+      const w = rand(baseWidth * 0.03, baseWidth * 0.06);
+      const h = rand(baseWidth * 0.08, baseWidth * 0.14);
+      const x = rand(w / 2, shellRect.width - w / 2);
+      const y = -h;
+      const speed = lerp(baseWidth * 0.25, baseWidth * 0.45, Math.random());
+
+      gameState.obstacles.push({
+        x,
+        y,
+        width: w,
+        height: h,
+        vy: speed,
+        wobblePhase: Math.random() * Math.PI * 2,
+        wobbleAmp: rand(2, 6),
+      });
+    }
+
+    function spawnPickup() {
+      const shellRect = shell.getBoundingClientRect();
+      const baseWidth = shellRect.width;
+      const r = baseWidth * 0.018;
+      const x = rand(r * 2, shellRect.width - r * 2);
+      const y = -r * 2;
+      const speed = lerp(baseWidth * 0.22, baseWidth * 0.38, Math.random());
+
+      gameState.pickups.push({
+        x,
+        y,
+        radius: r,
+        vy: speed,
+        pulse: Math.random() * Math.PI * 2,
+      });
+    }
+
+    function spawnParticle(x, y, color, count = 10) {
+      for (let i = 0; i < count; i++) {
+        gameState.particles.push({
+          x,
+          y,
+          vx: rand(-40, 40),
+          vy: rand(-40, 40),
+          life: rand(0.3, 0.7),
+          age: 0,
+          color,
+        });
+      }
+    }
+
+    // --- Input ----------------------------------------------------------------
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        gameState.input.left = true;
+      }
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+        gameState.input.right = true;
+      }
+      if (e.key === "p" || e.key === "P") {
+        togglePause();
+      }
+      if (e.key === " " && !gameState.running) {
+        startGame();
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        gameState.input.left = false;
+      }
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+        gameState.input.right = false;
+      }
+    });
+
+    // --- Game control ---------------------------------------------------------
+    function resetGame() {
+      gameState.score = 0;
+      gameState.time = 0;
+      gameState.obstacles = [];
+      gameState.pickups = [];
+      gameState.particles = [];
+      gameState.player = createPlayer();
+      gameState.speedMultiplier = 1;
+      gameState.difficulty = "Normal";
+      difficultyDisplay.textContent = gameState.difficulty;
+      scoreDisplay.textContent = "0";
+    }
+
+    function startGame() {
+      resetGame();
+      gameState.running = true;
+      gameState.paused = false;
+      gameState.lastFrameTime = performance.now();
+      overlay.classList.add("hidden");
+      primaryButtonLabel.textContent = "Pause";
+      requestAnimationFrame(loop);
+    }
+
+    function endGame() {
+      gameState.running = false;
+      gameState.paused = false;
+      primaryButtonLabel.textContent = "Restart";
+
+      if (gameState.score > gameState.bestScore) {
+        gameState.bestScore = gameState.score;
+      }
+
+      bestDisplay.textContent = gameState.bestScore.toString();
+
+      overlayTitleText.textContent = "Run Complete";
+      overlaySubtitleText.textContent =
+        gameState.score > 0
+          ? "Nice run. Can you push deeper into the stream?"
+          : "The neon stream is unforgiving. Try again.";
+      overlayScore.textContent = gameState.score.toString();
+      overlayBest.textContent = gameState.bestScore.toString();
+      overlayPrimaryLabel.textContent = "Play again";
+      overlaySecondaryLabel.textContent = "Close";
+      overlayHintText.textContent =
+        "Each second survived increases speed. Collect orbs to boost your score.";
+      overlay.classList.remove("hidden");
+    }
+
+    function togglePause() {
+      if (!gameState.running) return;
+      gameState.paused = !gameState.paused;
+
+      if (gameState.paused) {
+        overlayTitleText.textContent = "Paused";
+        overlaySubtitleText.textContent = "Take a breath. The stream will wait.";
+        overlayScore.textContent = gameState.score.toString();
+        overlayBest.textContent = gameState.bestScore.toString();
+        overlayPrimaryLabel.textContent = "Resume";
+        overlaySecondaryLabel.textContent = "End run";
+        overlayHintText.textContent = "Press P or click Resume to continue.";
+        overlay.classList.remove("hidden");
+        primaryButtonLabel.textContent = "Resume";
+      } else {
+        overlay.classList.add("hidden");
+        primaryButtonLabel.textContent = "Pause";
+        gameState.lastFrameTime = performance.now();
+        requestAnimationFrame(loop);
+      }
+    }
+
+    primaryButton.addEventListener("click", () => {
+      if (!gameState.running) {
+        startGame();
+      } else {
+        togglePause();
+      }
+    });
+
+    overlayPrimary.addEventListener("click", () => {
+      if (!gameState.running) {
+        startGame();
+      } else if (gameState.paused) {
+        togglePause();
+      }
+    });
+
+    overlaySecondary.addEventListener("click", () => {
+      if (gameState.paused) {
+        // End run from pause
+        endGame();
+      } else {
+        overlay.classList.add("hidden");
+      }
+    });
+
+    // --- Collision helpers ----------------------------------------------------
+    function rectsOverlap(a, b) {
+      return !(
+        a.x + a.width / 2 < b.x - b.width / 2 ||
+        a.x - a.width / 2 > b.x + b.width / 2 ||
+        a.y + a.height / 2 < b.y - b.height / 2 ||
+        a.y - a.height / 2 > b.y + b.height / 2
+      );
+    }
+
+    function circleRectOverlap(circle, rect) {
+      const closestX = clamp(circle.x, rect.x - rect.width / 2, rect.x + rect.width / 2);
+      const closestY = clamp(circle.y, rect.y - rect.height / 2, rect.y + rect.height / 2);
+      const dx = circle.x - closestX;
+      const dy = circle.y - closestY;
+      return dx * dx + dy * dy < circle.radius * circle.radius;
+    }
+
+    // --- Update ---------------------------------------------------------------
+    function update(dt) {
+      const shellRect = shell.getBoundingClientRect();
+      const player = gameState.player;
+      if (!player) return;
+
+      gameState.time += dt;
+      gameState.score += dt * 10 * gameState.speedMultiplier;
+      scoreDisplay.textContent = Math.floor(gameState.score).toString();
+
+      // Difficulty scaling
+      const t = gameState.time;
+      if (t > 40) {
+        gameState.speedMultiplier = 1.7;
+        gameState.difficulty = "Insane";
+      } else if (t > 25) {
+        gameState.speedMultiplier = 1.4;
+        gameState.difficulty = "Hard";
+      } else if (t > 12) {
+        gameState.speedMultiplier = 1.2;
+        gameState.difficulty = "Fast";
+      } else {
+        gameState.speedMultiplier = 1;
+        gameState.difficulty = "Normal";
+      }
+      difficultyDisplay.textContent = gameState.difficulty;
+
+      // Player movement
+      let dir = 0;
+      if (gameState.input.left) dir -= 1;
+      if (gameState.input.right) dir += 1;
+
+      player.vx = lerp(player.vx, dir * player.speed, 0.18);
+      player.x += player.vx * dt;
+      player.x = clamp(player.x, player.width / 2 + 6, shellRect.width - player.width / 2 - 6);
+
+      player.targetGlow = Math.abs(player.vx) > 10 ? 1 : 0.2;
+      player.glow = lerp(player.glow, player.targetGlow, 0.12);
+
+      // Spawn obstacles and pickups
+      const obstacleRate = lerp(0.9, 0.45, clamp(t / 40, 0, 1));
+      const pickupRate = 1.4;
+
+      if (Math.random() < dt / obstacleRate) {
+        spawnObstacle();
+      }
+      if (Math.random() < dt / pickupRate) {
+        spawnPickup();
+      }
+
+      // Update obstacles
+      for (let i = gameState.obstacles.length - 1; i >= 0; i--) {
+        const o = gameState.obstacles[i];
+        o.y += o.vy * dt * gameState.speedMultiplier;
+        o.wobblePhase += dt * 3;
+        o.x += Math.sin(o.wobblePhase) * o.wobbleAmp * dt * 2;
+
+        if (o.y - o.height > shellRect.height + 40) {
+          gameState.obstacles.splice(i, 1);
+          continue;
+        }
+
+        const rect = {
+          x: o.x,
+          y: o.y,
+          width: o.width,
+          height: o.height,
+        };
+
+        const playerRect = {
+          x: player.x,
+          y: player.y,
+          width: player.width * 0.7,
+          height: player.height * 0.7,
+        };
+
+        if (rectsOverlap(rect, playerRect)) {
+          spawnParticle(player.x, player.y, "#ff3366", 24);
+          endGame();
+          return;
+        }
+      }
+
+      // Update pickups
+      for (let i = gameState.pickups.length - 1; i >= 0; i--) {
+        const p = gameState.pickups[i];
+        p.y += p.vy * dt * gameState.speedMultiplier;
+        p.pulse += dt * 4;
+
+        if (p.y - p.radius > shellRect.height + 40) {
+          gameState.pickups.splice(i, 1);
+          continue;
+        }
+
+        const circle = {
+          x: p.x,
+          y: p.y,
+          radius: p.radius * 0.9,
+        };
+
+        const playerRect = {
+          x: player.x,
+          y: player.y,
+          width: player.width * 0.7,
+          height: player.height * 0.7,
+        };
+
+        if (circleRectOverlap(circle, playerRect)) {
+          gameState.score += 40;
+          spawnParticle(p.x, p.y, "#00f6ff", 18);
+          gameState.pickups.splice(i, 1);
+        }
+      }
+
+      // Update particles
+      for (let i = gameState.particles.length - 1; i >= 0; i--) {
+        const pt = gameState.particles[i];
+        pt.age += dt;
+        if (pt.age >= pt.life) {
+          gameState.particles.splice(i, 1);
+          continue;
+        }
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+      }
+    }
+
+    // --- Render ---------------------------------------------------------------
+    function drawBackground() {
+      const shellRect = shell.getBoundingClientRect();
+      const w = shellRect.width;
+      const h = shellRect.height;
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, "#0b1024");
+      gradient.addColorStop(0.4, "#050816");
+      gradient.addColorStop(1, "#02030a");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, w, h);
+
+      // Vertical lanes
+      const laneCount = 5;
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = "#1b2344";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= laneCount; i++) {
+        const x = (w / laneCount) * i;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Moving streaks
+      const t = gameState.time;
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.strokeStyle = "#00f6ff";
+      ctx.lineWidth = 2;
+      const streakCount = 12;
+      for (let i = 0; i < streakCount; i++) {
+        const x = ((i + 0.5) / streakCount) * w;
+        const offset = ((t * 120 + i * 40) % (h + 80)) - 40;
+        ctx.beginPath();
+        ctx.moveTo(x, offset);
+        ctx.lineTo(x, offset + 40);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawPlayer() {
+      const player = gameState.player;
+      if (!player) return;
+
+      const { x, y, width: w, height: h, glow } = player;
+
+      ctx.save();
+      ctx.translate(x, y);
+
+      // Glow
+      const glowRadius = w * 2.2;
+      const glowGradient = ctx.createRadialGradient(
+        0,
+        0,
+        0,
+        0,
+        0,
+        glowRadius
+      );
+      glowGradient.addColorStop(0, `rgba(0, 246, 255, ${0.35 * glow})`);
+      glowGradient.addColorStop(1, "rgba(0, 246, 255, 0)");
+      ctx.fillStyle = glowGradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body
+      const gradient = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+      gradient.addColorStop(0, "#00f6ff");
+      gradient.addColorStop(0.5, "#00b3ff");
+      gradient.addColorStop(1, "#0070ff");
+      ctx.fillStyle = gradient;
+      ctx.strokeStyle = "#e0f7ff";
+      ctx.lineWidth = 1.4;
+
+      ctx.beginPath();
+      ctx.moveTo(0, -h / 2);
+      ctx.lineTo(w / 2, h / 2);
+      ctx.lineTo(0, h / 3);
+      ctx.lineTo(-w / 2, h / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Core
+      ctx.fillStyle = "#e6fbff";
+      ctx.beginPath();
+      ctx.arc(0, -h * 0.12, w * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawObstacles() {
+      const shellRect = shell.getBoundingClientRect();
+
+      for (const o of gameState.obstacles) {
+        const gradient = ctx.createLinearGradient(
+          o.x,
+          o.y - o.height / 2,
+          o.x,
+          o.y + o.height / 2
+        );
+        gradient.addColorStop(0, "#ff7a9c");
+        gradient.addColorStop(0.5, "#ff3366");
+        gradient.addColorStop(1, "#b31237");
+
+        ctx.save();
+        ctx.translate(o.x, o.y);
+        ctx.rotate(Math.PI / 10);
+
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = "#ffd6e1";
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        ctx.moveTo(0, -o.height / 2);
+        ctx.lineTo(o.width / 2, 0);
+        ctx.lineTo(0, o.height / 2);
+        ctx.lineTo(-o.width / 2, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Glow
+        ctx.save();
+        ctx.globalAlpha = 0.18;
+        const glowGradient = ctx.createRadialGradient(
+          o.x,
+          o.y,
+          0,
+          o.x,
+          o.y,
+          o.width * 1.8
+        );
+        glowGradient.addColorStop(0, "#ff3366");
+        glowGradient.addColorStop(1, "rgba(255, 51, 102, 0)");
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(o.x, o.y, o.width * 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawPickups() {
+      for (const p of gameState.pickups) {
+        const pulse = (Math.sin(p.pulse) + 1) / 2;
+        const r = p.radius * (0.9 + pulse * 0.25);
+
+        // Outer glow
+        const glowGradient = ctx.createRadialGradient(
+          p.x,
+          p.y,
+          0,
+          p.x,
+          p.y,
+          r * 2.4
+        );
+        glowGradient.addColorStop(0, "rgba(0, 246, 255, 0.45)");
+        glowGradient.addColorStop(1, "rgba(0, 246, 255, 0)");
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r * 2.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        const coreGradient = ctx.createRadialGradient(
+          p.x,
+          p.y,
+          0,
+          p.x,
+          p.y,
+          r
+        );
+        coreGradient.addColorStop(0, "#e6fbff");
+        coreGradient.addColorStop(0.4, "#00f6ff");
+        coreGradient.addColorStop(1, "#00b3ff");
+        ctx.fillStyle = coreGradient;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawParticles() {
+      for (const pt of gameState.particles) {
+        const t = pt.age / pt.life;
+        const alpha = 1 - t;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 2 + (1 - t) * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // --- Main loop ------------------------------------------------------------
+    function loop(timestamp) {
+      if (!gameState.running || gameState.paused) return;
+
+      const dt = Math.min((timestamp - gameState.lastFrameTime) / 1000, 0.05);
+      gameState.lastFrameTime = timestamp;
+
+      update(dt);
+
+      drawBackground();
+      drawObstacles();
+      drawPickups();
+      drawPlayer();
+      drawParticles();
+
+      if (gameState.running && !gameState.paused) {
+        requestAnimationFrame(loop);
+      }
+    }
+
+    // --- Initial overlay ------------------------------------------------------
+    function showIntro() {
+      overlayTitleText.textContent = "Neon Runner";
+      overlaySubtitleText.textContent =
+        "Glide through a neon data stream. Avoid red shards, collect cyan orbs, and chase a high score.";
+      overlayScore.textContent = "0";
+      overlayBest.textContent = "0";
+      overlayPrimaryLabel.textContent = "Play";
+      overlaySecondaryLabel.textContent = "Close";
+      overlayHintText.textContent =
+        "Use arrow keys to move. Press P to pause mid-run.";
+      overlay.classList.remove("hidden");
+    }
+
+    showIntro();
+  </script>
+</body>
+</html>

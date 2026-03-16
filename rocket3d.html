@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mini Doom-like Raycaster</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    #game {
+      display: block;
+      margin: 0 auto;
+      background: #000;
+    }
+    #hud {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      font-size: 14px;
+      background: rgba(0,0,0,0.5);
+      padding: 6px 10px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+<canvas id="game" width="800" height="450"></canvas>
+<div id="hud">W/S: move &nbsp; A/D: turn &nbsp; Click: shoot</div>
+
+<script>
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  const WIDTH = canvas.width;
+  const HEIGHT = canvas.height;
+
+  // Simple map: 1 = wall, 0 = empty
+  const map = [
+    [1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,1,1,0,0,0,0,1],
+    [1,0,0,0,0,1,0,0,0,0,0,1],
+    [1,0,0,0,0,1,0,0,0,1,0,1],
+    [1,0,0,0,0,1,0,0,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1],
+  ];
+
+  const MAP_W = map[0].length;
+  const MAP_H = map.length;
+
+  const FOV = Math.PI / 3; // 60 degrees
+  const NUM_RAYS = WIDTH;
+  const MAX_DEPTH = 20;
+
+  const player = {
+    x: 3.5,
+    y: 3.5,
+    angle: 0,
+    speed: 0,
+    rotSpeed: 0
+  };
+
+  const keys = {
+    w: false,
+    s: false,
+    a: false,
+    d: false
+  };
+
+  let muzzleFlash = 0;
+
+  function isWall(x, y) {
+    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return true;
+    return map[Math.floor(y)][Math.floor(x)] === 1;
+  }
+
+  function castRay(rayAngle) {
+    let sin = Math.sin(rayAngle);
+    let cos = Math.cos(rayAngle);
+
+    let depth = 0;
+    let hit = false;
+    let hitX = 0;
+    let hitY = 0;
+    let texture = 0;
+
+    while (!hit && depth < MAX_DEPTH) {
+      depth += 0.02;
+      hitX = player.x + cos * depth;
+      hitY = player.y + sin * depth;
+      if (isWall(hitX, hitY)) {
+        hit = true;
+        texture = 1;
+      }
+    }
+
+    if (!hit) return { depth: MAX_DEPTH, texture: 0, hitX, hitY };
+
+    // Simple shading based on which side of the block we hit
+    const dx = hitX - Math.floor(hitX) - 0.5;
+    const dy = hitY - Math.floor(hitY) - 0.5;
+    let shade = 1;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      shade = dx > 0 ? 0.7 : 0.9;
+    } else {
+      shade = dy > 0 ? 0.5 : 1.0;
+    }
+
+    return { depth, texture, shade };
+  }
+
+  function update(dt) {
+    const moveSpeed = 3;      // units per second
+    const rotSpeed = 2.5;     // radians per second
+
+    player.speed = 0;
+    player.rotSpeed = 0;
+
+    if (keys.w) player.speed = moveSpeed;
+    if (keys.s) player.speed = -moveSpeed;
+    if (keys.a) player.rotSpeed = -rotSpeed;
+    if (keys.d) player.rotSpeed = rotSpeed;
+
+    player.angle += player.rotSpeed * dt;
+
+    const nextX = player.x + Math.cos(player.angle) * player.speed * dt;
+    const nextY = player.y + Math.sin(player.angle) * player.speed * dt;
+
+    if (!isWall(nextX, player.y)) player.x = nextX;
+    if (!isWall(player.x, nextY)) player.y = nextY;
+
+    if (muzzleFlash > 0) muzzleFlash -= dt;
+  }
+
+  function render() {
+    // Sky
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, HEIGHT / 2);
+    skyGradient.addColorStop(0, '#222244');
+    skyGradient.addColorStop(1, '#000010');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT / 2);
+
+    // Floor
+    const floorGradient = ctx.createLinearGradient(0, HEIGHT / 2, 0, HEIGHT);
+    floorGradient.addColorStop(0, '#202010');
+    floorGradient.addColorStop(1, '#000000');
+    ctx.fillStyle = floorGradient;
+    ctx.fillRect(0, HEIGHT / 2, WIDTH, HEIGHT / 2);
+
+    const startAngle = player.angle - FOV / 2;
+    const angleStep = FOV / NUM_RAYS;
+
+    for (let ray = 0; ray < NUM_RAYS; ray++) {
+      const rayAngle = startAngle + ray * angleStep;
+      const { depth, shade } = castRay(rayAngle);
+
+      const correctedDepth = depth * Math.cos(rayAngle - player.angle);
+      const wallHeight = Math.min(HEIGHT, (1 / correctedDepth) * HEIGHT * 0.8);
+
+      const x = ray;
+      const y = (HEIGHT / 2) - wallHeight / 2;
+
+      const brightness = Math.max(0, 255 * (1 - correctedDepth / MAX_DEPTH)) * (shade || 1);
+      const r = brightness;
+      const g = brightness * 0.2;
+      const b = brightness * 0.2;
+
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(x, y, 1, wallHeight);
+    }
+
+    // Simple gun in the center
+    const gunWidth = 120;
+    const gunHeight = 80;
+    const gunX = WIDTH / 2 - gunWidth / 2;
+    const gunY = HEIGHT - gunHeight - 10;
+
+    ctx.fillStyle = '#222';
+    ctx.fillRect(gunX, gunY, gunWidth, gunHeight);
+    ctx.fillStyle = '#555';
+    ctx.fillRect(gunX + 20, gunY + 20, gunWidth - 40, gunHeight - 40);
+
+    // Muzzle flash
+    if (muzzleFlash > 0) {
+      ctx.fillStyle = `rgba(255, 255, 200, ${muzzleFlash})`;
+      ctx.beginPath();
+      ctx.arc(WIDTH / 2, gunY, 30, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  let lastTime = performance.now();
+  function loop(time) {
+    const dt = (time - lastTime) / 1000;
+    lastTime = time;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(loop);
+  }
+
+  // Input
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'w') keys.w = true;
+    if (e.key === 's') keys.s = true;
+    if (e.key === 'a') keys.a = true;
+    if (e.key === 'd') keys.d = true;
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'w') keys.w = false;
+    if (e.key === 's') keys.s = false;
+    if (e.key === 'a') keys.a = false;
+    if (e.key === 'd') keys.d = false;
+  });
+
+  canvas.addEventListener('click', () => {
+    muzzleFlash = 0.2;
+  });
+
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Minecraft Clicker Deluxe</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        background: radial-gradient(circle at top, #6bbf59 0, #2f5b25 40%, #111 100%);
+        font-family: 'Press Start 2P', system-ui, sans-serif;
+        color: #f5f5f5;
+        text-align: center;
+        user-select: none;
+    }
+
+    h1 {
+        margin-top: 20px;
+        text-shadow: 3px 3px #000;
+        letter-spacing: 2px;
+    }
+
+    #game {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 20px;
+        padding: 20px;
+    }
+
+    .panel {
+        background: linear-gradient(145deg, #2b2b2b, #171717);
+        border: 3px solid #000;
+        box-shadow: 0 0 0 3px #3b3b3b, 0 10px 0 #000;
+        border-radius: 8px;
+        padding: 15px;
+        min-width: 280px;
+        max-width: 360px;
+    }
+
+    .panel h2 {
+        font-size: 14px;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px #000;
+    }
+
+    #main-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #block-container {
+        position: relative;
+        margin: 15px 0;
+    }
+
+    #block {
+        width: 220px;
+        height: 220px;
+        background-image: url('https://i.imgur.com/3ZQ3ZQF.png');
+        background-size: cover;
+        border: 6px solid #000;
+        box-shadow: 0 10px 0 #000;
+        cursor: pointer;
+        transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+
+    #block:active {
+        transform: scale(0.96) translateY(4px);
+        box-shadow: 0 4px 0 #000;
+    }
+
+    .float-text {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #ffd700;
+        font-size: 12px;
+        text-shadow: 2px 2px #000;
+        animation: floatUp 0.7s ease-out forwards;
+        pointer-events: none;
+    }
+
+    @keyframes floatUp {
+        0% { opacity: 1; top: 50%; }
+        100% { opacity: 0; top: 10%; }
+    }
+
+    #stats {
+        font-size: 11px;
+        line-height: 1.7;
+        margin-top: 10px;
+    }
+
+    .stat-label {
+        color: #a0ffa0;
+    }
+
+    #progress-wrapper {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    #progress-bar-bg {
+        width: 100%;
+        height: 16px;
+        background: #222;
+        border: 2px solid #000;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    #progress-bar-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #00ff7f, #00bfff);
+        transition: width 0.15s ease-out;
+    }
+
+    #progress-label {
+        margin-top: 4px;
+        font-size: 9px;
+        color: #d0ffd0;
+    }
+
+    #shop-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .upgrade {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        background: #202020;
+        border-radius: 6px;
+        border: 2px solid #000;
+        cursor: pointer;
+        transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s;
+        font-size: 9px;
+    }
+
+    .upgrade:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 0 #000;
+        background: #2a2a2a;
+    }
+
+    .upgrade.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .upgrade-title {
+        text-align: left;
+    }
+
+    .upgrade-name {
+        display: block;
+        font-size: 10px;
+    }
+
+    .upgrade-desc {
+        display: block;
+        font-size: 8px;
+        color: #c0c0c0;
+        margin-top: 2px;
+    }
+
+    .upgrade-cost {
+        font-size: 9px;
+        color: #ffd700;
+    }
+
+    .rarity-common { border-color: #777; }
+    .rarity-rare { border-color: #3fa9ff; }
+    .rarity-epic { border-color: #b84cff; }
+    .rarity-legendary { border-color: #ffb400; }
+
+    #controls {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .btn {
+        padding: 6px 8px;
+        font-size: 9px;
+        border-radius: 4px;
+        border: 2px solid #000;
+        background: #5c3b16;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 3px 0 #000;
+        transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s;
+    }
+
+    .btn:hover {
+        background: #7b4f1f;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 0 #000;
+    }
+
+    .btn:active {
+        transform: translateY(1px);
+        box-shadow: 0 1px 0 #000;
+    }
+
+    #log {
+        margin-top: 8px;
+        font-size: 8px;
+        color: #c0ffc0;
+        min-height: 24px;
+    }
+
+    @media (max-width: 800px) {
+        #game {
+            flex-direction: column;
+            align-items: center;
+        }
+    }
+</style>
+</head>
+<body>
+
+<h1>⛏️ Minecraft Clicker Deluxe</h1>
+
+<div id="game">
+    <div class="panel" id="main-panel">
+        <h2>Mining Field</h2>
+        <div id="block-container">
+            <div id="block"></div>
+        </div>
+
+        <div id="stats">
+            <div><span class="stat-label">Coins:</span> <span id="coins">0</span></div>
+            <div><span class="stat-label">Per Click:</span> <span id="cpc">1</span></div>
+            <div><span class="stat-label">Per Second:</span> <span id="cps">0</span></div>
+            <div><span class="stat-label">Fortune Multiplier:</span> <span id="fortune">1.0x</span></div>
+        </div>
+
+        <div id="progress-wrapper">
+            <div id="progress-bar-bg">
+                <div id="progress-bar-fill"></div>
+            </div>
+            <div id="progress-label">Breaking: Grass Block (0 / 100)</div>
+        </div>
+
+        <div id="controls">
+            <button class="btn" id="save-btn">Save Game</button>
+            <button class="btn" id="load-btn">Load Game</button>
+            <button class="btn" id="reset-btn">Reset World</button>
+        </div>
+
+        <div id="log"></div>
+    </div>
+
+    <div class="panel">
+        <h2>Upgrades & Miners</h2>
+        <div id="shop-list">
+            <!-- Upgrades injected by JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- Core State ----------
+    let coins = 0;
+    let coinsPerClick = 1;
+    let coinsPerSecond = 0;
+    let fortuneMultiplier = 1.0;
+
+    let blockHP = 100;
+    let blockHPMax = 100;
+    let blockTierIndex = 0;
+
+    const blocks = [
+        { name: "Grass Block", maxHP: 100 },
+        { name: "Stone", maxHP: 250 },
+        { name: "Iron Ore", maxHP: 600 },
+        { name: "Gold Ore", maxHP: 1500 },
+        { name: "Diamond Ore", maxHP: 4000 },
+        { name: "Ancient Debris", maxHP: 10000 }
+    ];
+
+    const upgrades = [
+        {
+            id: "click1",
+            name: "Stronger Pickaxe",
+            desc: "+1 coin per click",
+            baseCost: 25,
+            cost: 25,
+            rarity: "common",
+            onBuy: () => { coinsPerClick += 1; }
+        },
+        {
+            id: "click2",
+            name: "Iron Pickaxe",
+            desc: "+5 coins per click",
+            baseCost: 200,
+            cost: 200,
+            rarity: "rare",
+            onBuy: () => { coinsPerClick += 5; }
+        },
+        {
+            id: "miner1",
+            name: "Villager Miner",
+            desc: "+1 coin per second",
+            baseCost: 75,
+            cost: 75,
+            rarity: "common",
+            onBuy: () => { coinsPerSecond += 1; }
+        },
+        {
+            id: "miner2",
+            name: "Iron Golem Miner",
+            desc: "+5 coins per second",
+            baseCost: 400,
+            cost: 400,
+            rarity: "rare",
+            onBuy: () => { coinsPerSecond += 5; }
+        },
+        {
+            id: "fortune1",
+            name: "Fortune I",
+            desc: "1.2x all coin gains",
+            baseCost: 500,
+            cost: 500,
+            rarity: "epic",
+            onBuy: () => { fortuneMultiplier *= 1.2; }
+        },
+        {
+            id: "fortune2",
+            name: "Fortune II",
+            desc: "1.5x all coin gains",
+            baseCost: 2000,
+            cost: 2000,
+            rarity: "legendary",
+            onBuy: () => { fortuneMultiplier *= 1.5; }
+        }
+    ];
+
+    const coinsEl = document.getElementById("coins");
+    const cpcEl = document.getElementById("cpc");
+    const cpsEl = document.getElementById("cps");
+    const fortuneEl = document.getElementById("fortune");
+    const progressFillEl = document.getElementById("progress-bar-fill");
+    const progressLabelEl = document.getElementById("progress-label");
+    const blockEl = document.getElementById("block");
+    const shopListEl = document.getElementById("shop-list");
+    const logEl = document.getElementById("log");
+
+    // ---------- UI Helpers ----------
+    function format(num) {
+        if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + "M";
+        if (num >= 1_000) return (num / 1_000).toFixed(2) + "K";
+        return Math.floor(num);
+    }
+
+    function log(message) {
+        logEl.textContent = message;
+    }
+
+    function updateStatsUI() {
+        coinsEl.textContent = format(coins);
+        cpcEl.textContent = format(coinsPerClick);
+        cpsEl.textContent = format(coinsPerSecond);
+        fortuneEl.textContent = fortuneMultiplier.toFixed(2) + "x";
+    }
+
+    function updateProgressUI() {
+        const block = blocks[blockTierIndex] || blocks[blocks.length - 1];
+        const pct = Math.max(0, Math.min(100, (1 - blockHP / blockHPMax) * 100));
+        progressFillEl.style.width = pct + "%";
+        progressLabelEl.textContent = `Breaking: ${block.name} (${blockHPMax - blockHP} / ${blockHPMax})`;
+    }
+
+    function nextBlock() {
+        blockTierIndex = Math.min(blockTierIndex + 1, blocks.length - 1);
+        const block = blocks[blockTierIndex];
+        blockHPMax = block.maxHP;
+        blockHP = blockHPMax;
+        updateProgressUI();
+        log(`You reached ${block.name}!`);
+    }
+
+    function spawnFloatText(text) {
+        const container = document.getElementById("block-container");
+        const el = document.createElement("div");
+        el.className = "float-text";
+        el.textContent = "+" + text;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 700);
+    }
+
+    // ---------- Shop Rendering ----------
+    function renderShop() {
+        shopListEl.innerHTML = "";
+        upgrades.forEach(upg => {
+            const div = document.createElement("div");
+            div.className = `upgrade rarity-${upg.rarity}`;
+            div.dataset.id = upg.id;
+
+            const left = document.createElement("div");
+            left.className = "upgrade-title";
+            const name = document.createElement("span");
+            name.className = "upgrade-name";
+            name.textContent = upg.name;
+            const desc = document.createElement("span");
+            desc.className = "upgrade-desc";
+            desc.textContent = upg.desc;
+            left.appendChild(name);
+            left.appendChild(desc);
+
+            const right = document.createElement("div");
+            right.className = "upgrade-cost";
+            right.textContent = `Cost: ${format(upg.cost)}`;
+
+            div.appendChild(left);
+            div.appendChild(right);
+
+            div.addEventListener("click", () => buyUpgrade(upg.id));
+            shopListEl.appendChild(div);
+        });
+
+        refreshShopAffordability();
+    }
+
+    function refreshShopAffordability() {
+        const children = shopListEl.children;
+        for (let i = 0; i < children.length; i++) {
+            const el = children[i];
+            const id = el.dataset.id;
+            const upg = upgrades.find(u => u.id === id);
+            if (!upg) continue;
+            if (coins >= upg.cost) {
+                el.classList.remove("disabled");
+            } else {
+                el.classList.add("disabled");
+            }
+            el.querySelector(".upgrade-cost").textContent = `Cost: ${format(upg.cost)}`;
+        }
+    }
+
+    function buyUpgrade(id) {
+        const upg = upgrades.find(u => u.id === id);
+        if (!upg) return;
+        if (coins < upg.cost) {
+            log("Not enough coins for " + upg.name);
+            return;
+        }
+        coins -= upg.cost;
+        upg.onBuy();
+        upg.cost = Math.floor(upg.cost * 1.6);
+        log("Purchased " + upg.name + "!");
+        updateStatsUI();
+        refreshShopAffordability();
+    }
+
+    // ---------- Click & Passive Income ----------
+    function handleClick() {
+        const baseGain = coinsPerClick;
+        const gain = baseGain * fortuneMultiplier;
+        coins += gain;
+        spawnFloatText(format(gain));
+        blockHP -= baseGain;
+        if (blockHP <= 0) {
+            const bonus = blockHPMax * 0.05 * fortuneMultiplier;
+            coins += bonus;
+            log(`Block broken! Bonus +${format(bonus)} coins.`);
+            nextBlock();
+        } else {
+            updateProgressUI();
+        }
+        updateStatsUI();
+        refreshShopAffordability();
+    }
+
+    blockEl.addEventListener("click", handleClick);
+
+    setInterval(() => {
+        if (coinsPerSecond > 0) {
+            const gain = coinsPerSecond * fortuneMultiplier;
+            coins += gain;
+            updateStatsUI();
+            refreshShopAffordability();
+        }
+    }, 1000);
+
+    // ---------- Save / Load ----------
+    const SAVE_KEY = "minecraft_clicker_deluxe_save";
+
+    function saveGame() {
+        const data = {
+            coins,
+            coinsPerClick,
+            coinsPerSecond,
+            fortuneMultiplier,
+            blockHP,
+            blockHPMax,
+            blockTierIndex,
+            upgrades: upgrades.map(u => ({ id: u.id, cost: u.cost }))
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+        log("Game saved.");
+    }
+
+    function loadGame() {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) {
+            log("No save found.");
+            return;
+        }
+        try {
+            const data = JSON.parse(raw);
+            coins = data.coins ?? 0;
+            coinsPerClick = data.coinsPerClick ?? 1;
+            coinsPerSecond = data.coinsPerSecond ?? 0;
+            fortuneMultiplier = data.fortuneMultiplier ?? 1.0;
+            blockHP = data.blockHP ?? 100;
+            blockHPMax = data.blockHPMax ?? 100;
+            blockTierIndex = data.blockTierIndex ?? 0;
+
+            if (Array.isArray(data.upgrades)) {
+                data.upgrades.forEach(saved => {
+                    const upg = upgrades.find(u => u.id === saved.id);
+                    if (upg && typeof saved.cost === "number") {
+                        upg.cost = saved.cost;
+                    }
+                });
+            }
+
+            updateStatsUI();
+            updateProgressUI();
+            renderShop();
+            log("Game loaded.");
+        } catch (e) {
+            console.error(e);
+            log("Failed to load save.");
+        }
+    }
+
+    function resetGame() {
+        if (!confirm("Reset your world? This cannot be undone.")) return;
+        coins = 0;
+        coinsPerClick = 1;
+        coinsPerSecond = 0;
+        fortuneMultiplier = 1.0;
+        blockTierIndex = 0;
+        blockHPMax = blocks[0].maxHP;
+        blockHP = blockHPMax;
+        upgrades.forEach(u => u.cost = u.baseCost);
+        localStorage.removeItem(SAVE_KEY);
+        updateStatsUI();
+        updateProgressUI();
+        renderShop();
+        log("World reset.");
+    }
+
+    document.getElementById("save-btn").addEventListener("click", saveGame);
+    document.getElementById("load-btn").addEventListener("click", loadGame);
+    document.getElementById("reset-btn").addEventListener("click", resetGame);
+
+    // ---------- Init ----------
+    function init() {
+        blockHPMax = blocks[0].maxHP;
+        blockHP = blockHPMax;
+        updateStatsUI();
+        updateProgressUI();
+        renderShop();
+        log("Start mining!");
+    }
+
+    init();
+</script>
+
+</body>
+</html>

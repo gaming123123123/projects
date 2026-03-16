@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D Sumo Arena with Bot Toggle</title>
+<style>
+  body { margin:0; background:#0f1220; font-family:sans-serif; color:#eee; }
+  canvas { display:block; width:100%; height:100%; }
+  #hud { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-weight:bold; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud"></div>
+<script>
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),hud=document.getElementById("hud");
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;arena.cx=canvas.width/2;arena.cy=canvas.height/2;arena.r=Math.min(canvas.width,canvas.height)*0.35;resetRound();}
+window.addEventListener("resize",resize);window.addEventListener("load",resize);
+
+const arena={cx:0,cy:0,r:0},RADIUS=28,MOVE_ACCEL=1200,MAX_SPEED=420,DASH_POWER=1600,DASH_COOLDOWN=0.9,DASH_TIME=0.12,FRICTION=0.94;
+const keys=new Set();window.addEventListener("keydown",e=>keys.add(e.code));window.addEventListener("keyup",e=>keys.delete(e.code));
+
+class Player{
+  constructor(name,color,controls){this.name=name;this.color=color;this.controls=controls;this.x=0;this.y=0;this.vx=0;this.vy=0;this.dashCD=0;this.dashTimer=0;this.out=false;this.score=0;}
+  place(x,y){this.x=x;this.y=y;this.vx=this.vy=0;this.out=false;this.dashCD=0;this.dashTimer=0;}
+  update(dt){
+    if(this.out)return;
+    let ax=0,ay=0;
+    const up=keys.has(this.controls.up),down=keys.has(this.controls.down),left=keys.has(this.controls.left),right=keys.has(this.controls.right),dashKey=keys.has(this.controls.dash);
+    if(up)ay-=1;if(down)ay+=1;if(left)ax-=1;if(right)ax+=1;
+    const len=Math.hypot(ax,ay);if(len>0){ax=ax/len*MOVE_ACCEL;ay=ay/len*MOVE_ACCEL;}
+    this.dashCD=Math.max(0,this.dashCD-dt);this.dashTimer=Math.max(0,this.dashTimer-dt);
+    if(dashKey&&this.dashCD<=0&&len>0){this.vx+=(ax/MOVE_ACCEL)*DASH_POWER;this.vy+=(ay/MOVE_ACCEL)*DASH_POWER;this.dashCD=DASH_COOLDOWN;this.dashTimer=DASH_TIME;}
+    this.vx+=ax*dt;this.vy+=ay*dt;
+    const s=Math.hypot(this.vx,this.vy);if(s>MAX_SPEED){const k=MAX_SPEED/s;this.vx*=k;this.vy*=k;}
+    this.vx*=FRICTION;this.vy*=FRICTION;
+    this.x+=this.vx*dt;this.y+=this.vy*dt;
+    if(Math.hypot(this.x-arena.cx,this.y-arena.cy)>arena.r-RADIUS)this.out=true;
+  }
+  draw(ctx){ctx.fillStyle=this.color;ctx.beginPath();ctx.arc(this.x,this.y,RADIUS,0,Math.PI*2);ctx.fill();}
+}
+
+// Bot controller (weaker)
+class Bot{
+  constructor(player,opponent){this.player=player;this.opponent=opponent;}
+  update(dt){
+    const me=this.player,op=this.opponent;
+    if(me.out)return;
+    const dx=op.x-me.x,dy=op.y-me.y,dist=Math.hypot(dx,dy);
+    let ax=0,ay=0;
+    if(dist>10){ax=dx/dist;ay=dy/dist;}
+    me.dashCD=Math.max(0,me.dashCD-dt);me.dashTimer=Math.max(0,me.dashTimer-dt);
+    if(dist<100&&me.dashCD<=0){me.vx+=ax*1000;me.vy+=ay*1000;me.dashCD=1.2;me.dashTimer=0.1;}
+    me.vx+=ax*dt*MOVE_ACCEL*0.6;me.vy+=ay*dt*MOVE_ACCEL*0.6;
+    const s=Math.hypot(me.vx,me.vy);if(s>MAX_SPEED){const k=MAX_SPEED/s;me.vx*=k;me.vy*=k;}
+    me.vx*=FRICTION;me.vy*=FRICTION;
+    me.x+=me.vx*dt;me.y+=me.vy*dt;
+    if(Math.hypot(me.x-arena.cx,me.y-arena.cy)>arena.r-RADIUS)me.out=true;
+  }
+}
+
+function resolveCollision(a,b){const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),minDist=RADIUS*2;if(dist<minDist&&dist>0){const nx=dx/dist,ny=dy/dist,overlap=minDist-dist;a.x-=nx*overlap/2;a.y-=ny*overlap/2;b.x+=nx*overlap/2;b.y+=ny*overlap/2;a.vx-=nx*overlap*5;b.vx+=nx*overlap*5;a.vy-=ny*overlap*5;b.vy+=ny*overlap*5;}}
+
+const p1=new Player("Player 1","red",{up:"KeyW",down:"KeyS",left:"KeyA",right:"KeyD",dash:"Space"});
+const p2=new Player("Player 2","blue",{up:"ArrowUp",down:"ArrowDown",left:"ArrowLeft",right:"ArrowRight",dash:"ShiftRight"});
+let botEnabled=false,bot=null;
+let roundOver=false;
+function resetRound(){p1.place(arena.cx-arena.r*0.35,arena.cy);p2.place(arena.cx+arena.r*0.35,arena.cy);roundOver=false;updateHUD();}
+function score(player){player.score++;roundOver=true;setTimeout(resetRound,1000);updateHUD();}
+function updateHUD(){hud.textContent=`P1 ${p1.score} - ${p2.score} ${botEnabled?"Bot":"P2"} ${roundOver?" | Round over":""}`;}
+
+window.addEventListener("keydown",e=>{if(e.code==="KeyB"){botEnabled=!botEnabled;bot=botEnabled?new Bot(p2,p1):null;updateHUD();}});
+
+let last=performance.now();
+function loop(now){const dt=Math.min(0.033,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(loop);}requestAnimationFrame(loop);
+function update(dt){
+  if(!roundOver){
+    p1.update(dt);
+    if(botEnabled){bot.update(dt);}else{p2.update(dt);}
+    resolveCollision(p1,p2);
+    if(p1.out&&!p2.out)score(p2);else if(p2.out&&!p1.out)score(p1);else if(p1.out&&p2.out){roundOver=true;setTimeout(resetRound,700);}
+  }
+}
+function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#1b2749";ctx.beginPath();ctx.arc(arena.cx,arena.cy,arena.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle="white";ctx.lineWidth=4;ctx.beginPath();ctx.arc(arena.cx,arena.cy,arena.r-RADIUS,0,Math.PI*2);ctx.stroke();p1.draw(ctx);p2.draw(ctx);}
+</script>
+</body>
+</html>

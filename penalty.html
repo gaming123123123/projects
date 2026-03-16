@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Penalty Shootout</title>
+<style>
+  body { margin:0; background:#0f1220; font-family:sans-serif; color:#eee; }
+  canvas { display:block; margin:0 auto; background:#1b2749; }
+  #hud { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-weight:bold; }
+</style>
+</head>
+<body>
+<canvas id="game" width="800" height="500"></canvas>
+<div id="hud"></div>
+<script>
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),hud=document.getElementById("hud");
+const keys=new Set();window.addEventListener("keydown",e=>keys.add(e.code));window.addEventListener("keyup",e=>keys.delete(e.code));
+
+let shooterScore=0,keeperScore=0,round=1,maxRounds=5,message="Click to shoot!";
+let botEnabled=false;
+window.addEventListener("keydown",e=>{if(e.code==="KeyB"){botEnabled=!botEnabled;}});
+
+let ball=null;
+const goal={x:canvas.width/2-150,y:50,w:300,h:100};
+const keeper={x:canvas.width/2,y:goal.y+goal.h/2,w:60,h:60,dir:1}; // 0 left,1 center,2 right
+
+canvas.addEventListener("click",e=>{
+  if(ball||round>maxRounds)return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  ball={x:canvas.width/2,y:400,vx:(mx-canvas.width/2)/30,vy:(my-400)/30,targetX:mx,targetY:my};
+});
+
+function update(){
+  if(ball){
+    ball.x+=ball.vx;ball.y+=ball.vy;
+    // check goal line
+    if(ball.y<goal.y+goal.h){
+      let save=false;
+      let keeperZone=[goal.x,goal.x+goal.w/3,goal.x+2*goal.w/3,goal.x+goal.w];
+      let kLeft=keeperZone[keeper.dir],kRight=keeperZone[keeper.dir+1];
+      if(ball.x>kLeft&&ball.x<kRight)save=true;
+      if(save){message="Saved!";keeperScore++;}else{message="Goal!";shooterScore++;}
+      ball=null;round++;
+      if(round>maxRounds)endGame();
+    }
+  }
+  // keeper control
+  if(!botEnabled){
+    if(keys.has("ArrowLeft"))keeper.dir=0;
+    if(keys.has("ArrowUp"))keeper.dir=1;
+    if(keys.has("ArrowRight"))keeper.dir=2;
+  }else{
+    if(Math.random()<0.02)keeper.dir=Math.floor(Math.random()*3);
+  }
+  hud.textContent=`Round ${round}/${maxRounds} | Shooter ${shooterScore} - ${keeperScore} Keeper | ${botEnabled?"Bot Keeper":"Human Keeper"} | ${message}`;
+}
+function endGame(){
+  if(shooterScore>keeperScore)message="Shooter wins!";
+  else if(keeperScore>shooterScore)message="Keeper wins!";
+  else message="Draw!";
+  setTimeout(()=>{shooterScore=0;keeperScore=0;round=1;message="Click to shoot!";},2000);
+}
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // pitch
+  ctx.fillStyle="#0b6623";ctx.fillRect(0,0,canvas.width,canvas.height);
+  // goal
+  ctx.fillStyle="white";ctx.fillRect(goal.x,goal.y,goal.w,10);
+  ctx.fillRect(goal.x,goal.y,10,goal.h);
+  ctx.fillRect(goal.x+goal.w-10,goal.y,10,goal.h);
+  // keeper
+  ctx.fillStyle="blue";
+  let zoneW=goal.w/3;
+  ctx.fillRect(goal.x+keeper.dir*zoneW+zoneW/2-keeper.w/2,goal.y+goal.h/2-keeper.h/2,keeper.w,keeper.h);
+  // shooter
+  ctx.fillStyle="red";ctx.fillRect(canvas.width/2-20,400,40,40);
+  // ball
+  if(ball){ctx.fillStyle="white";ctx.beginPath();ctx.arc(ball.x,ball.y,10,0,Math.PI*2);ctx.fill();}
+}
+function loop(){update();draw();requestAnimationFrame(loop);}loop();
+</script>
+</body>
+</html>

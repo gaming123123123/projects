@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pokémon Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --panel: #13161a;
+      --muted: #8b949e;
+      --text: #e6edf3;
+      --primary: #7c9eff;
+      --accent: #22d3ee;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #22c55e;
+    }
+    * { box-sizing: border-box }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; }
+    a { color: var(--accent); text-decoration: none }
+    header { position: sticky; top: 0; z-index: 50; backdrop-filter: saturate(120%) blur(8px); background: rgba(11,13,16,0.7); border-bottom: 1px solid #1f242b; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+    .nav button { background: var(--panel); border: 1px solid #222831; color: var(--text); padding: 10px 14px; border-radius: 8px; cursor: pointer }
+    .nav button.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(124,158,255,.25) inset }
+    .grid { display: grid; gap: 12px }
+    .col-2 { grid-template-columns: repeat(2, minmax(0,1fr)) }
+    .col-3 { grid-template-columns: repeat(3, minmax(0,1fr)) }
+    .col-4 { grid-template-columns: repeat(4, minmax(0,1fr)) }
+    @media (max-width: 900px) { .col-4 { grid-template-columns: repeat(3, 1fr) } }
+    @media (max-width: 700px) { .col-3, .col-4 { grid-template-columns: repeat(2, 1fr) } }
+    @media (max-width: 480px) { .col-2, .col-3, .col-4 { grid-template-columns: 1fr } }
+    .panel { background: var(--panel); border: 1px solid #1f242b; border-radius: 12px; padding: 12px }
+    .input, select { width: 100%; background: #0f1216; border: 1px solid #222831; color: var(--text); padding: 10px 12px; border-radius: 8px }
+    .btn { background: #1a2130; border: 1px solid #293244; color: var(--text); padding: 10px 14px; border-radius: 8px; cursor: pointer }
+    .btn.primary { background: #233156; border-color: var(--primary) }
+    .btn.good { background: #0e1c14; border-color: #14532d; color: #a7f3d0 }
+    .btn.bad { background: #1b1111; border-color: #7f1d1d; color: #fecaca }
+    .type { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; margin-right: 6px; margin-bottom: 6px; border: 1px solid #2a313a }
+    .type[data-t="fire"] { background: #ff7b43; color: #1a0c07 }
+    .type[data-t="water"] { background: #58a6ff; color: #081520 }
+    .type[data-t="grass"] { background: #55c36a; color: #07140a }
+    .type[data-t="electric"] { background: #facc15; color: #1a1605 }
+    .type[data-t="ice"] { background: #6ed3f0; color: #05141a }
+    .type[data-t="fighting"] { background: #ef4444; color: #1a0b0b }
+    .type[data-t="poison"] { background: #a855f7; color: #130a19 }
+    .type[data-t="ground"] { background: #d1a054; color: #17130c }
+    .type[data-t="flying"] { background: #9ca3af; color: #0c0d0f }
+    .type[data-t="psychic"] { background: #fb7185; color: #180b0d }
+    .type[data-t="bug"] { background: #9bd76b; color: #0c1208 }
+    .type[data-t="rock"] { background: #b4a389; color: #100e0a }
+    .type[data-t="ghost"] { background: #7c5cff; color: #0f0a1d }
+    .type[data-t="dark"] { background: #64748b; color: #0c0f13 }
+    .type[data-t="dragon"] { background: #60a5fa; color: #08121b }
+    .type[data-t="steel"] { background: #c4ceda; color: #0c0e11 }
+    .type[data-t="fairy"] { background: #f9a8d4; color: #160c13 }
+    .statbar { height: 8px; background: #11161c; border: 1px solid #212b36; border-radius: 999px; overflow: hidden }
+    .statbar > div { height: 100% }
+    .hpbar { height: 12px; background: #11161c; border: 1px solid #212b36; border-radius: 6px; overflow: hidden }
+    .hpbar > div { height: 100% }
+    .poke-card { display: grid; grid-template-columns: 72px 1fr; gap: 10px; align-items: center; padding: 8px; border-radius: 8px; border: 1px solid #222831; background: #0f1216; cursor: pointer }
+    .poke-card:hover { border-color: var(--primary) }
+    .thumb { width: 72px; height: 72px; background: #0b0d10; border: 1px solid #1f242b; border-radius: 8px; display: grid; place-items: center; overflow: hidden }
+    .thumb img { max-width: 100%; object-fit: contain }
+    .silhouette { filter: brightness(0) contrast(200%) }
+    .log { font-size: 12px; color: var(--muted); max-height: 180px; overflow: auto; border: 1px solid #1f242b; border-radius: 8px; padding: 8px; background: #0e1116 }
+    .sticky-actions { position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(19,22,26,0), rgba(19,22,26,1) 30%); padding-top: 8px }
+    .footer { color: var(--muted); font-size: 12px; text-align: center; padding: 20px }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <strong style="font-size: 18px">Pokémon Hub</strong>
+      <div style="flex: 1"></div>
+      <button class="active" data-tab="dex">Pokédex</button>
+      <button data-tab="who">Who’s That Pokémon?</button>
+      <button data-tab="battle">Battle Simulator</button>
+    </div>
+  </header>
+
+  <main class="wrap" id="content">
+    <!-- Pokédex -->
+    <section id="tab-dex">
+      <div class="grid col-2">
+        <div class="panel">
+          <h2 style="margin:0 0 8px">Search</h2>
+          <div class="grid col-2" style="gap:8px">
+            <div>
+              <label>Name or ID</label>
+              <input id="dex-search" class="input" placeholder="e.g. pikachu or 25" list="name-list"/>
+              <datalist id="name-list"></datalist>
+            </div>
+            <div>
+              <label>Type</label>
+              <select id="dex-type">
+                <option value="">Any</option>
+                <option>normal</option><option>fire</option><option>water</option><option>grass</option><option>electric</option>
+                <option>ice</option><option>fighting</option><option>poison</option><option>ground</option><option>flying</option>
+                <option>psychic</option><option>bug</option><option>rock</option><option>ghost</option><option>dragon</option>
+                <option>dark</option><option>steel</option><option>fairy</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:8px; display:flex; gap:8px">
+            <button class="btn" id="dex-clear">Clear</button>
+            <button class="btn primary" id="dex-load-more">Load more</button>
+          </div>
+          <div id="dex-list" class="grid col-3" style="margin-top:12px"></div>
+        </div>
+        <div class="panel">
+          <h2 style="margin:0 0 8px">Details</h2>
+          <div id="dex-details" style="min-height: 320px">
+            <p style="color: var(--muted)">Select a Pokémon to see details.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Who's That Pokémon -->
+    <section id="tab-who" style="display:none">
+      <div class="grid col-2">
+        <div class="panel">
+          <h2 style="margin:0 0 8px">Who’s That Pokémon?</h2>
+          <div id="who-box" style="display:grid; place-items:center; min-height: 420px; border: 1px dashed #263040; border-radius: 12px; background:#0e1116">
+            <img id="who-img" alt="Mystery Pokémon" style="width: 420px; height: 420px; object-fit: contain; display:none"/>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:12px">
+            <input id="who-guess" class="input" placeholder="Type your guess…" list="name-list"/>
+            <button class="btn primary" id="who-submit">Guess</button>
+            <button class="btn" id="who-next">Next</button>
+          </div>
+          <p id="who-status" style="margin-top:8px; color: var(--muted)">Press “Next” to start.</p>
+        </div>
+        <div class="panel">
+          <h2 style="margin:0 0 8px">Hints</h2>
+          <div id="who-hints"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Battle Simulator -->
+    <section id="tab-battle" style="display:none">
+      <div class="grid col-2">
+        <div class="panel">
+          <h2 style="margin:0 0 8px">Setup</h2>
+          <div class="grid col-2" style="gap:8px">
+            <div>
+              <label>Player 1 Pokémon</label>
+              <input id="p1-name" class="input" placeholder="e.g. charizard" list="name-list"/>
+              <button class="btn" id="p1-load" style="margin-top:6px">Load P1</button>
+            </div>
+            <div>
+              <label>Player 2 Pokémon</label>
+              <input id="p2-name" class="input" placeholder="e.g. venusaur" list="name-list"/>
+              <button class="btn" id="p2-load" style="margin-top:6px">Load P2</button>
+            </div>
+          </div>
+          <p style="color: var(--muted); margin-top:6px">Tip: choose fully evolved Pokémon for better stats.</p>
+          <div class="grid col-2" style="gap:12px; margin-top:12px">
+            <div id="p1-card" class="panel"></div>
+            <div id="p2-card" class="panel"></div>
+          </div>
+          <div class="sticky-actions">
+            <div style="display:flex; gap:8px; align-items:center; margin-top:8px">
+              <button class="btn primary" id="start-battle">Start Battle</button>
+              <button class="btn" id="reset-battle">Reset</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2 style="margin:0 0 8px">Battle</h2>
+          <div id="battle-ui">
+            <div class="grid col-2" style="gap:12px">
+              <div>
+                <strong id="p1-title">P1</strong>
+                <div class="hpbar"><div id="p1-hpbar" style="width:100%; background: var(--success)"></div></div>
+                <p id="p1-hp" style="margin:4px 0 10px">—</p>
+                <div id="p1-moves" style="display:flex; flex-wrap:wrap; gap:8px"></div>
+              </div>
+              <div>
+                <strong id="p2-title">P2</strong>
+                <div class="hpbar"><div id="p2-hpbar" style="width:100%; background: var(--success)"></div></div>
+                <p id="p2-hp" style="margin:4px 0 10px">—</p>
+              </div>
+            </div>
+            <div style="margin-top:10px">
+              <div class="log" id="battle-log" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="footer">Data and images sourced from public Pokémon APIs. This is a fan-made site.</div>
+
+  <script>
+    // Tabs
+    const tabs = document.querySelectorAll('header .nav button');
+    const sections = { dex: document.getElementById('tab-dex'), who: document.getElementById('tab-who'), battle: document.getElementById('tab-battle') };
+    tabs.forEach(btn => btn.addEventListener('click', () => {
+      tabs.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      Object.values(sections).forEach(s => s.style.display = 'none');
+      sections[btn.dataset.tab].style.display = '';
+    }));
+
+    // Global name list
+    const nameList = document.getElementById('name-list');
+    let allPokemon = [];
+    let nextPage = 'https://pokeapi.co/api/v2/pokemon?limit=100&offset=0';
+    async function ensureNames(limit=2000) {
+      if (allPokemon.length) return;
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${limit}`);
+      const json = await res.json();
+      allPokemon = json.results;
+      nameList.innerHTML = allPokemon.map(p => `<option value="${p.name}"></option>`).join('');
+    }
+    ensureNames();
+
+    // Utilities
+    const imgArt = (data) => data.sprites?.other?.['official-artwork']?.front_default || data.sprites?.front_default || '';
+    const imgThumb = (data) => data.sprites?.front_default || imgArt(data) || '';
+    function typeBadge(t){ return `<span class="type" data-t="${t}">${t}</span>` }
+    function statBar(v){ const pct = Math.min(100, Math.round(v/200*100)); const color = v>=120?'var(--success)':v>=80?'var(--warning)':'var(--danger)'; return `<div class="statbar"><div style="width:${pct}%; background:${color}"></div></div>` }
+    async function fetchPokemon(idOrName){ const r = await fetch(`https://pokeapi.co/api/v2/pokemon/${idOrName}`); if(!r.ok) throw new Error('Not found'); return r.json(); }
+    async function fetchSpecies(idOrName){ const r = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${idOrName}`); if(!r.ok) return null; return r.json(); }
+    function flavorText(species){ if(!species) return ''; const ft = species.flavor_text_entries?.find(f=>f.language?.name==='en'); return ft?.flavor_text?.replace(/\f/g,' ') || '' }
+
+    // Type chart (simplified multipliers)
+    const TYPES = ["normal","fire","water","grass","electric","ice","fighting","poison","ground","flying","psychic","bug","rock","ghost","dragon","dark","steel","fairy"];
+    const TYPE_CHART = {
+      normal:{rock:.5, steel:.5, ghost:0},
+      fire:{fire:.5, water:.5, rock:.5, dragon:.5, grass:2, ice:2, bug:2, steel:2},
+      water:{water:.5, grass:.5, dragon:.5, fire:2, ground:2, rock:2},
+      grass:{fire:.5, grass:.5, poison:.5, flying:.5, bug:.5, dragon:.5, steel:.5, water:2, ground:2, rock:2},
+      electric:{electric:.5, grass:.5, dragon:.5, ground:0, water:2, flying:2},
+      ice:{fire:.5, water:.5, ice:.5, steel:.5, grass:2, ground:2, flying:2, dragon:2},
+      fighting:{poison:.5, flying:.5, psychic:.5, bug:.5, fairy:.5, ghost:0, normal:2, ice:2, rock:2, dark:2, steel:2},
+      poison:{ground:.5, rock:.5, ghost:.5, steel:0, grass:2, fairy:2},
+      ground:{grass:.5, bug:.5, flying:0, fire:2, electric:2, poison:2, rock:2, steel:2},
+      flying:{electric:.5, rock:.5, steel:.5, grass:2, fighting:2, bug:2},
+      psychic:{psychic:.5, steel:.5, dark:0, fighting:2, poison:2},
+      bug:{fire:.5, fighting:.5, poison:.5, flying:.5, ghost:.5, steel:.5, fairy:.5, grass:2, psychic:2, dark:2},
+      rock:{fighting:.5, ground:.5, steel:.5, fire:2, ice:2, flying:2, bug:2},
+      ghost:{dark:.5, normal:0, psychic:2, ghost:2},
+      dragon:{steel:.5, fairy:0, dragon:2},
+      dark:{fighting:.5, dark:.5, fairy:.5, psychic:2, ghost:2},
+      steel:{fire:.5, water:.5, electric:.5, steel:.5, ice:2, rock:2, fairy:2},
+      fairy:{fire:.5, poison:.5, steel:.5, fighting:2, dragon:2, dark:2}
+    };
+    function typeMult(moveType, defs){ return defs.reduce((m,t)=> m * (TYPE_CHART[moveType]?.[t] ?? 1), 1); }
+    function stab(moveType, atts){ return atts.includes(moveType) ? 1.5 : 1; }
+
+    // DEX: pagination and filters
+    const dexList = document.getElementById('dex-list');
+    const dexSearch = document.getElementById('dex-search');
+    const dexType = document.getElementById('dex-type');
+    const dexClear = document.getElementById('dex-clear');
+    const dexLoadMore = document.getElementById('dex-load-more');
+    const dexDetails = document.getElementById('dex-details');
+    let dexOffset = 0;
+
+    async function loadDexPage(limit=24) {
+      const url = `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${dexOffset}`;
+      const base = await fetch(url).then(r=>r.json());
+      const items = await Promise.all(base.results.map(x => fetch(x.url).then(r=>r.json())));
+      dexOffset += limit;
+      renderDex(items, true);
+    }
+    function renderDex(items, append=false){
+      const cards = items.map(d => {
+        const types = d.types.map(t=>t.type.name);
+        return `<div class="poke-card" data-id="${d.id}">
+          <div class="thumb"><img src="${imgThumb(d)}" alt="${d.name}" loading="lazy"/></div>
+          <div>
+            <div style="display:flex; gap:8px; align-items:center">
+              <strong style="text-transform:capitalize">${d.name}</strong>
+              <span style="color:var(--muted)">#${String(d.id).padStart(4,'0')}</span>
+            </div>
+            <div>${types.map(typeBadge).join('')}</div>
+          </div>
+        </div>`;
+      }).join('');
+      if(append) dexList.insertAdjacentHTML('beforeend', cards);
+      else dexList.innerHTML = cards;
+      dexList.querySelectorAll('.poke-card').forEach(el => el.addEventListener('click', async () => showDetails(el.dataset.id)));
+    }
+    async function showDetails(idOrName){
+      try {
+        const [d,s] = await Promise.all([fetchPokemon(idOrName), fetchSpecies(idOrName)]);
+        const art = imgArt(d);
+        const types = d.types.map(t=>t.type.name);
+        const stats = d.stats.map(s=>({ name: s.stat.name, v: s.base_stat }));
+        dexDetails.innerHTML = `
+          <div class="grid col-2" style="gap:12px">
+            <div style="display:grid; place-items:center; min-height:320px; background:#0e1116; border:1px solid #1f242b; border-radius:12px">
+              <img src="${art}" alt="${d.name}" style="max-width:100%; max-height:300px; object-fit:contain"/>
+            </div>
+            <div>
+              <h3 style="margin:0 0 6px; text-transform:capitalize">${d.name} <span style="color:var(--muted)">#${String(d.id).padStart(4,'0')}</span></h3>
+              <div>${types.map(typeBadge).join('')}</div>
+              <div style="margin-top:8px">
+                ${stats.map(s=>`<div style="display:grid; grid-template-columns: 90px 1fr; gap:8px; align-items:center">
+                  <span style="text-transform:capitalize">${s.name} ${s.v}</span>${statBar(s.v)}
+                </div>`).join('')}
+              </div>
+              <p style="margin-top:8px; color:var(--muted)">${flavorText(s) || ''}</p>
+            </div>
+          </div>
+        `;
+      } catch(e) {
+        dexDetails.innerHTML = `<p style="color: var(--danger)">Couldn’t load details.</p>`;
+      }
+    }
+    dexLoadMore.addEventListener('click', () => loadDexPage());
+    dexClear.addEventListener('click', () => { dexSearch.value=''; dexType.value=''; dexList.innerHTML=''; dexOffset=0; loadDexPage(); });
+    dexSearch.addEventListener('change', async () => {
+      const q = dexSearch.value.trim().toLowerCase();
+      if(!q) return;
+      try {
+        const d = await fetchPokemon(q);
+        renderDex([d], false);
+      } catch {
+        dexList.innerHTML = `<p style="color: var(--muted)">No match.</p>`;
+      }
+    });
+    dexType.addEventListener('change', async () => {
+      const type = dexType.value;
+      if(!type) { dexList.innerHTML=''; dexOffset=0; loadDexPage(); return; }
+      // Filter by type using first 300 entries for speed
+      const base = await fetch('https://pokeapi.co/api/v2/pokemon?limit=300').then(r=>r.json());
+      const items = await Promise.all(base.results.map(x => fetch(x.url).then(r=>r.json())));
+      const filtered = items.filter(d => d.types.some(t=>t.type.name===type));
+      renderDex(filtered.slice(0,48), false);
+    });
+    loadDexPage();
+
+    // WHO'S THAT
+    const whoImg = document.getElementById('who-img');
+    const whoGuess = document.getElementById('who-guess');
+    const whoSubmit = document.getElementById('who-submit');
+    const whoNext = document.getElementById('who-next');
+    const whoStatus = document.getElementById('who-status');
+    const whoHints = document.getElementById('who-hints');
+    let currentWho = null;
+    async function loadWho(){
+      whoStatus.textContent = 'Loading…';
+      const id = Math.floor(Math.random()*1025)+1;
+      try {
+        const d = await fetchPokemon(id);
+        currentWho = d;
+        whoImg.src = imgArt(d);
+        whoImg.style.display = 'block';
+        whoImg.className = 'silhouette';
+        whoStatus.textContent = 'Guess the name!';
+        const types = d.types.map(t=>t.type.name);
+        whoHints.innerHTML = `
+          <p><strong>Types:</strong> ${types.map(typeBadge).join('')}</p>
+          <p><strong>Base HP:</strong> ${d.stats.find(s=>s.stat.name==='hp')?.base_stat}</p>
+          <p><strong>Generation-ish:</strong> #${String(d.id).padStart(4,'0')}</p>
+        `;
+      } catch {
+        whoStatus.textContent = 'Could not load. Try Next.';
+      }
+    }
+    whoSubmit.addEventListener('click', () => {
+      if(!currentWho) return;
+      const g = whoGuess.value.trim().toLowerCase();
+      const name = currentWho.name.toLowerCase();
+      const correct = g && g === name;
+      whoImg.className = ''; // reveal
+      whoStatus.innerHTML = correct ? `Correct! It’s <strong style="text-transform:capitalize">${currentWho.name}</strong>.` :
+        `It’s <strong style="text-transform:capitalize">${currentWho.name}</strong>.`;
+    });
+    whoNext.addEventListener('click', () => { whoGuess.value=''; loadWho(); });
+
+    // BATTLE
+    const p1Name = document.getElementById('p1-name');
+    const p2Name = document.getElementById('p2-name');
+    const p1Load = document.getElementById('p1-load');
+    const p2Load = document.getElementById('p2-load');
+    const p1Card = document.getElementById('p1-card');
+    const p2Card = document.getElementById('p2-card');
+    const startBattle = document.getElementById('start-battle');
+    const resetBattle = document.getElementById('reset-battle');
+    const p1Title = document.getElementById('p1-title');
+    const p2Title = document.getElementById('p2-title');
+    const p1HPText = document.getElementById('p1-hp');
+    const p2HPText = document.getElementById('p2-hp');
+    const p1HPBar = document.getElementById('p1-hpbar');
+    const p2HPBar = document.getElementById('p2-hpbar');
+    const p1Moves = document.getElementById('p1-moves');
+    const battleLog = document.getElementById('battle-log');
+
+    let P1 = null, P2 = null, battleOn = false, turn = 1;
+
+    function renderCard(slot, data){
+      const art = imgArt(data);
+      const types = data.types.map(t=>t.type.name);
+      const stats = data.stats.map(s=>({ name: s.stat.name, v: s.base_stat }));
+      const html = `
+        <div style="display:grid; grid-template-columns: 120px 1fr; gap:12px">
+          <div class="thumb" style="width:120px; height:120px"><img src="${art}" alt="${data.name}"/></div>
+          <div>
+            <h3 style="margin:0; text-transform:capitalize">${data.name} <span style="color:var(--muted)">#${String(data.id).padStart(4,'0')}</span></h3>
+            <div>${types.map(typeBadge).join('')}</div>
+            <div style="margin-top:6px">${stats.map(s=>`<div style="display:grid; grid-template-columns: 90px 1fr; gap:8px; align-items:center">
+              <span style="text-transform:capitalize">${s.name} ${s.v}</span>${statBar(s.v)}
+            </div>`).join('')}</div>
+          </div>
+        </div>`;
+      (slot==='p1'?p1Card:p2Card).innerHTML = html;
+    }
+    p1Load.addEventListener('click', async ()=> {
+      const q = p1Name.value.trim().toLowerCase(); if(!q) return;
+      try { P1 = await fetchPokemon(q); renderCard('p1', P1); } catch { p1Card.innerHTML = '<p style="color:var(--danger)">Not found</p>'; }
+    });
+    p2Load.addEventListener('click', async ()=> {
+      const q = p2Name.value.trim().toLowerCase(); if(!q) return;
+      try { P2 = await fetchPokemon(q); renderCard('p2', P2); } catch { p2Card.innerHTML = '<p style="color:var(--danger)">Not found</p>'; }
+    });
+
+    // Simple move generator
+    function basicMoves(p) {
+      const primary = p.types[0].type.name;
+      const moves = [
+        { name:'Quick Attack', type:'normal', category:'physical', power:40, accuracy:.100 },
+        { name:`${primary[0].toUpperCase()+primary.slice(1)} Blast`, type:primary, category:'special', power:70, accuracy:.95 },
+        { name:'Guard Up', type:'steel', category:'status' },
+        { name:'Focus blast', type:'fighting', category:'physical', power:140, accuracy:.70 }
+      ];
+      return moves;
+    }
+
+    function calcHP(p){ // Approx level-50 HP from base stats
+      const baseHP = p.stats.find(s=>s.stat.name==='hp').base_stat;
+      return Math.floor(((2*baseHP)*50)/100) + 60; // rough
+    }
+    function atkStat(p, cat){ const s = p.stats.find(x=>x.stat.name=== (cat==='physical'?'attack':'special-attack')).base_stat; return Math.floor(((2*s)*50)/100)+5; }
+    function defStat(p, cat){ const s = p.stats.find(x=>x.stat.name=== (cat==='physical'?'defense':'special-defense')).base_stat; return Math.floor(((2*s)*50)/100)+5; }
+
+    function damage(att, def, move){
+      if(!move.power) return 0;
+      const A = atkStat(att, move.category);
+      const D = defStat(def, move.category);
+      const base = Math.floor(Math.floor(Math.floor((2*50)/5 + 2) * move.power * (A/D))/50) + 2;
+      const mult = stab(move.type, att.types.map(t=>t.type.name)) * typeMult(move.type, def.types.map(t=>t.type.name)) * (0.9 + Math.random()*0.1);
+      return Math.max(1, Math.floor(base * mult));
+    }
+
+    function updateHPUI() {
+      const p1pct = Math.max(0, Math.round(P1._hp / P1._maxhp * 100));
+      const p2pct = Math.max(0, Math.round(P2._hp / P2._maxhp * 100));
+      p1HPText.textContent = `${P1._hp} / ${P1._maxhp} HP`;
+      p2HPText.textContent = `${P2._hp} / ${P2._maxhp} HP`;
+      p1HPBar.style.width = p1pct+'%';
+      p2HPBar.style.width = p2pct+'%';
+      p1HPBar.style.background = p1pct>50?'var(--success)':p1pct>20?'var(--warning)':'var(--danger)';
+      p2HPBar.style.background = p2pct>50?'var(--success)':p2pct>20?'var(--warning)':'var(--danger)';
+    }
+
+    function log(msg){ const line = document.createElement('div'); line.textContent = msg; battleLog.appendChild(line); battleLog.scrollTop = battleLog.scrollHeight; }
+
+    function renderBattleUI(){
+      p1Title.textContent = P1.name;
+      p2Title.textContent = P2.name;
+      P1._maxhp = calcHP(P1); P2._maxhp = calcHP(P2);
+      P1._hp = P1._maxhp; P2._hp = P2._maxhp;
+      P1._moves = basicMoves(P1); P2._moves = basicMoves(P2);
+      updateHPUI();
+      p1Moves.innerHTML = '';
+      P1._moves.forEach((m,i) => {
+        const b = document.createElement('button');
+        b.className = 'btn primary';
+        b.textContent = `${m.name}`;
+        b.addEventListener('click', ()=> playerTurn(i));
+        p1Moves.appendChild(b);
+      });
+      battleLog.innerHTML = '';
+      log('Battle started!');
+    }
+
+    function cpuChooseMove(p){ // Simple: prefer STAB move
+      const stab = p._moves.find(m=>p.types.map(t=>t.type.name).includes(m.type));
+      return stab ? p._moves.indexOf(stab) : 0;
+    }
+
+    function playerTurn(moveIdx){
+      if(!battleOn) return;
+      const m1 = P1._moves[moveIdx];
+      // Accuracy
+      if(m1.accuracy && Math.random() > m1.accuracy) { log(`${P1.name} used ${m1.name}, but it missed!`); } else {
+        const d1 = damage(P1, P2, m1);
+        P2._hp = Math.max(0, P2._hp - d1);
+        log(`${P1.name} used ${m1.name}! It dealt ${d1} damage.`);
+      }
+      updateHPUI();
+      if(P2._hp<=0){ log(`${P2.name} fainted! ${P1.name} wins!`); battleOn=false; return; }
+
+      // CPU move
+      const j = cpuChooseMove(P2);
+      const m2 = P2._moves[j];
+      if(m2.accuracy && Math.random() > m2.accuracy) { log(`${P2.name} used ${m2.name}, but it missed!`); }
+      else {
+        const d2 = damage(P2, P1, m2);
+        P1._hp = Math.max(0, P1._hp - d2);
+        log(`${P2.name} used ${m2.name}! It dealt ${d2} damage.`);
+      }
+      updateHPUI();
+      if(P1._hp<=0){ log(`${P1.name} fainted! ${P2.name} wins!`); battleOn=false; return; }
+      turn++;
+    }
+
+    startBattle.addEventListener('click', () => {
+      if(!P1 || !P2) { alert('Load both Pokémon first.'); return; }
+      battleOn = true; turn = 1;
+      renderBattleUI();
+    });
+    resetBattle.addEventListener('click', () => {
+      battleOn = false; battleLog.innerHTML=''; p1Moves.innerHTML=''; p1HPText.textContent='—'; p2HPText.textContent='—';
+      p1HPBar.style.width='100%'; p2HPBar.style.width='100%';
+    });
+
+    // Intro load for WHO tab for convenience
+    loadWho();
+  </script>
+</body>
+</html>

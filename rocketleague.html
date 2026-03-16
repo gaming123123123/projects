@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D Rocket League Fixed</title>
+<style>
+  body { margin:0; background:#111; }
+  canvas { display:block; margin:0 auto; background:#0b3d91; }
+  #hud {
+    position:absolute; top:10px; left:50%; transform:translateX(-50%);
+    color:white; font:20px sans-serif; font-weight:bold;
+  }
+</style>
+</head>
+<body>
+<canvas id="game" width="900" height="500"></canvas>
+<div id="hud">Red 0 - 0 Blue (press B to toggle bot)</div>
+<script>
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),hud=document.getElementById("hud");
+
+const FIELD={x:50,y:50,w:800,h:400,goalH:120}; // goal height
+const BALL_RADIUS=15,CAR_W=40,CAR_H=20;
+let scores={red:0,blue:0};
+let ball={x:FIELD.x+FIELD.w/2,y:FIELD.y+FIELD.h/2,vx:0,vy:0};
+
+let red={x:FIELD.x+100,y:FIELD.y+FIELD.h/2,vx:0,vy:0,color:"red",
+  left:"KeyA",right:"KeyD",up:"KeyW",down:"KeyS"};
+let blue={x:FIELD.x+FIELD.w-100,y:FIELD.y+FIELD.h/2,vx:0,vy:0,color:"blue",
+  left:"ArrowLeft",right:"ArrowRight",up:"ArrowUp",down:"ArrowDown"};
+
+const players=[red,blue];
+const keys=new Set();
+window.addEventListener("keydown",e=>keys.add(e.code));
+window.addEventListener("keyup",e=>keys.delete(e.code));
+
+let bot=null;
+window.addEventListener("keydown",e=>{
+  if(e.code==="KeyB"){ bot=bot?null:new Bot(blue,red); }
+});
+
+// Reset
+function resetPositions(){
+  ball.x=FIELD.x+FIELD.w/2;ball.y=FIELD.y+FIELD.h/2;ball.vx=ball.vy=0;
+  red.x=FIELD.x+100;red.y=FIELD.y+FIELD.h/2;red.vx=red.vy=0;
+  blue.x=FIELD.x+FIELD.w-100;blue.y=FIELD.y+FIELD.h/2;blue.vx=blue.vy=0;
+}
+
+// Bot AI
+class Bot{
+  constructor(car,opponent){this.car=car;this.opponent=opponent;}
+  update(dt){
+    const me=this.car, b=ball;
+    // Bot wants to get behind ball relative to its own goal (left side)
+    const targetX=b.x-60, targetY=b.y;
+    const dx=targetX-me.x, dy=targetY-me.y;
+    const dist=Math.hypot(dx,dy);
+    if(dist>5){me.vx=(dx/dist)*200;me.vy=(dy/dist)*200;}
+    // If lined up, push ball toward right goal
+    if(Math.abs(me.y-b.y)<40){me.vx=(-200); }
+    me.x+=me.vx*dt;me.y+=me.vy*dt;
+    me.x=Math.max(FIELD.x,Math.min(FIELD.x+FIELD.w,me.x));
+    me.y=Math.max(FIELD.y,Math.min(FIELD.y+FIELD.h,me.y));
+  }
+}
+
+// Update
+function update(dt){
+  for(const p of players){
+    if(p===blue && bot){continue;}
+    let ax=0,ay=0;
+    if(keys.has(p.left))ax=-200;
+    if(keys.has(p.right))ax=200;
+    if(keys.has(p.up))ay=-200;
+    if(keys.has(p.down))ay=200;
+    p.vx=ax;p.vy=ay;
+    p.x+=p.vx*dt;p.y+=p.vy*dt;
+    p.x=Math.max(FIELD.x,Math.min(FIELD.x+FIELD.w,p.x));
+    p.y=Math.max(FIELD.y,Math.min(FIELD.y+FIELD.h,p.y));
+  }
+  if(bot)bot.update(dt);
+
+  // Ball physics
+  ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
+  ball.vx*=0.99;ball.vy*=0.99;
+
+  // Bounce top/bottom
+  if(ball.y-BALL_RADIUS<FIELD.y){ball.y=FIELD.y+BALL_RADIUS;ball.vy*=-1;}
+  if(ball.y+BALL_RADIUS>FIELD.y+FIELD.h){ball.y=FIELD.y+FIELD.h-BALL_RADIUS;ball.vy*=-1;}
+
+  // Left goal check
+  if(ball.x-BALL_RADIUS<FIELD.x){
+    if(ball.y>FIELD.y+FIELD.h/2-FIELD.goalH/2 && ball.y<FIELD.y+FIELD.h/2+FIELD.goalH/2){
+      scores.blue++;resetPositions();
+    } else { ball.x=FIELD.x+BALL_RADIUS;ball.vx*=-1; }
+  }
+  // Right goal check
+  if(ball.x+BALL_RADIUS>FIELD.x+FIELD.w){
+    if(ball.y>FIELD.y+FIELD.h/2-FIELD.goalH/2 && ball.y<FIELD.y+FIELD.h/2+FIELD.goalH/2){
+      scores.red++;resetPositions();
+    } else { ball.x=FIELD.x+FIELD.w-BALL_RADIUS;ball.vx*=-1; }
+  }
+
+  // Collisions with cars
+  for(const p of players){
+    const dx=ball.x-p.x,dy=ball.y-p.y,dist=Math.hypot(dx,dy);
+    if(dist<BALL_RADIUS+CAR_W/2){
+      const nx=dx/dist,ny=dy/dist;
+      ball.vx=nx*300;ball.vy=ny*300;
+    }
+  }
+
+  hud.textContent=`Red ${scores.red} - ${scores.blue} ${bot?"Bot":"Blue"} (press B to toggle bot)`;
+}
+
+// Draw
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#0b6623";ctx.fillRect(FIELD.x,FIELD.y,FIELD.w,FIELD.h);
+  // Mid line
+  ctx.strokeStyle="white";ctx.beginPath();
+  ctx.moveTo(FIELD.x+FIELD.w/2,FIELD.y);ctx.lineTo(FIELD.x+FIELD.w/2,FIELD.y+FIELD.h);ctx.stroke();
+  // Goals
+  ctx.fillStyle="rgba(255,255,255,0.3)";
+  ctx.fillRect(FIELD.x-20,FIELD.y+FIELD.h/2-FIELD.goalH/2,20,FIELD.goalH);
+  ctx.fillRect(FIELD.x+FIELD.w,FIELD.y+FIELD.h/2-FIELD.goalH/2,20,FIELD.goalH);
+  // Ball
+  ctx.fillStyle="white";ctx.beginPath();ctx.arc(ball.x,ball.y,BALL_RADIUS,0,Math.PI*2);ctx.fill();
+  // Cars
+  for(const p of players){ctx.fillStyle=p.color;ctx.fillRect(p.x-CAR_W/2,p.y-CAR_H/2,CAR_W,CAR_H);}
+}
+
+// Loop
+let last=performance.now();
+function loop(now){const dt=(now-last)/1000;last=now;update(dt);draw();requestAnimationFrame(loop);}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>	

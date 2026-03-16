@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Canvas Racing Game</title>
+<style>
+  body {
+    margin: 0;
+    background: #111;
+    color: #eee;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #ui {
+    margin: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  label {
+    font-size: 14px;
+  }
+  select, button {
+    padding: 4px 8px;
+    font-size: 14px;
+  }
+  canvas {
+    border: 2px solid #555;
+    background: #222;
+  }
+  #info {
+    margin-top: 6px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div id="ui">
+  <label>
+    Mode:
+    <select id="mode">
+      <option value="bot">Player vs Bot</option>
+      <option value="pvp">Player vs Player</option>
+    </select>
+  </label>
+  <label>
+    Track:
+    <select id="track">
+      <option value="0">Oval</option>
+      <option value="1">Chicane</option>
+      <option value="2">Figure-8</option>
+    </select>
+  </label>
+  <button id="startBtn">Start Race</button>
+  <span>Controls P1: W/A/S/D | P2: ↑/↓/←/→</span>
+</div>
+<canvas id="game" width="900" height="600"></canvas>
+<div id="info"></div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const modeSelect = document.getElementById("mode");
+  const trackSelect = document.getElementById("track");
+  const startBtn = document.getElementById("startBtn");
+  const info = document.getElementById("info");
+
+  const WIDTH = canvas.width;
+  const HEIGHT = canvas.height;
+
+  const keys = {};
+  window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+  window.addEventListener("keyup",   e => keys[e.key.toLowerCase()] = false);
+
+  const TRACKS = [
+    // Oval
+    {
+      name: "Oval",
+      checkpoints: [
+        {x: 450, y: 80},
+        {x: 820, y: 300},
+        {x: 450, y: 520},
+        {x: 80,  y: 300}
+      ],
+      start: {x: 450, y: 300, angle: -Math.PI/2}
+    },
+    // Chicane
+    {
+      name: "Chicane",
+      checkpoints: [
+        {x: 450, y: 80},
+        {x: 700, y: 200},
+        {x: 450, y: 320},
+        {x: 200, y: 440},
+        {x: 450, y: 520}
+      ],
+      start: {x: 450, y: 300, angle: -Math.PI/2}
+    },
+    // Figure-8
+    {
+      name: "Figure-8",
+      checkpoints: [
+        {x: 450, y: 80},
+        {x: 700, y: 200},
+        {x: 450, y: 300},
+        {x: 200, y: 400},
+        {x: 450, y: 520},
+        {x: 700, y: 400},
+        {x: 450, y: 300},
+        {x: 200, y: 200}
+      ],
+      start: {x: 450, y: 300, angle: -Math.PI/2}
+    }
+  ];
+
+  const LAPS_TO_WIN = 3;
+  let currentTrack = TRACKS[0];
+
+  class Car {
+    constructor(color, x, y, angle, controls) {
+      this.color = color;
+      this.x = x;
+      this.y = y;
+      this.angle = angle;
+      this.speed = 0;
+      this.maxSpeed = 5;
+      this.accel = 0.18;
+      this.friction = 0.06;
+      this.turnSpeed = 0.06;
+      this.width = 26;
+      this.height = 46;
+      this.controls = controls;
+      this.lap = 0;
+      this.nextCheckpoint = 0;
+      this.finished = false;
+      this.name = "Car";
+    }
+
+    reset(x, y, angle) {
+      this.x = x;
+      this.y = y;
+      this.angle = angle;
+      this.speed = 0;
+      this.lap = 0;
+      this.nextCheckpoint = 0;
+      this.finished = false;
+    }
+
+    update(dt, track, isBot = false, targetCar = null) {
+      if (this.finished) return;
+
+      if (!isBot) {
+        this.handleInput(dt);
+      } else {
+        this.botLogic(dt, track, targetCar);
+      }
+
+      // Apply friction
+      if (this.speed > 0) {
+        this.speed -= this.friction;
+        if (this.speed < 0) this.speed = 0;
+      } else if (this.speed < 0) {
+        this.speed += this.friction;
+        if (this.speed > 0) this.speed = 0;
+      }
+
+      // Clamp speed
+      if (this.speed > this.maxSpeed) this.speed = this.maxSpeed;
+      if (this.speed < -this.maxSpeed * 0.5) this.speed = -this.maxSpeed * 0.5;
+
+      // Move
+      this.x += Math.sin(this.angle) * this.speed;
+      this.y -= Math.cos(this.angle) * this.speed;
+
+      // Track bounds (simple soft walls)
+      const margin = 20;
+      if (this.x < margin) { this.x = margin; this.speed *= -0.3; }
+      if (this.x > WIDTH - margin) { this.x = WIDTH - margin; this.speed *= -0.3; }
+      if (this.y < margin) { this.y = margin; this.speed *= -0.3; }
+      if (this.y > HEIGHT - margin) { this.y = HEIGHT - margin; this.speed *= -0.3; }
+
+      this.checkCheckpoint(track);
+    }
+
+    handleInput(dt) {
+      const up = keys[this.controls.up];
+      const down = keys[this.controls.down];
+      const left = keys[this.controls.left];
+      const right = keys[this.controls.right];
+
+      if (up) this.speed += this.accel;
+      if (down) this.speed -= this.accel * 0.7;
+
+      if (Math.abs(this.speed) > 0.2) {
+        if (left) this.angle -= this.turnSpeed * Math.sign(this.speed);
+        if (right) this.angle += this.turnSpeed * Math.sign(this.speed);
+      }
+    }
+
+    botLogic(dt, track, targetCar) {
+      const checkpoints = track.checkpoints;
+      const cp = checkpoints[this.nextCheckpoint];
+      const dx = cp.x - this.x;
+      const dy = cp.y - this.y;
+      const targetAngle = Math.atan2(dx, -dy);
+      let angleDiff = targetAngle - this.angle;
+      angleDiff = ((angleDiff + Math.PI) % (2 * Math.PI)) - Math.PI;
+
+      if (angleDiff > 0.05) this.angle += this.turnSpeed * 0.8;
+      else if (angleDiff < -0.05) this.angle -= this.turnSpeed * 0.8;
+
+      const dist = Math.hypot(dx, dy);
+      const desiredSpeed = dist > 120 ? this.maxSpeed : this.maxSpeed * 0.5;
+      if (this.speed < desiredSpeed) this.speed += this.accel * 0.9;
+      else this.speed -= this.accel * 0.4;
+
+      if (targetCar) {
+        const d2 = Math.hypot(targetCar.x - this.x, targetCar.y - this.y);
+        if (d2 < 80 && this.speed > targetCar.speed) {
+          this.speed -= this.accel * 0.6;
+        }
+      }
+    }
+
+    checkCheckpoint(track) {
+      const cp = track.checkpoints[this.nextCheckpoint];
+      const dist = Math.hypot(this.x - cp.x, this.y - cp.y);
+      if (dist < 40) {
+        this.nextCheckpoint++;
+        if (this.nextCheckpoint >= track.checkpoints.length) {
+          this.nextCheckpoint = 0;
+          this.lap++;
+          if (this.lap >= LAPS_TO_WIN) {
+            this.finished = true;
+          }
+        }
+      }
+    }
+
+    draw(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.angle);
+      ctx.fillStyle = this.color;
+      ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(-this.width/4, -this.height/2 + 4, this.width/2, 6);
+      ctx.restore();
+    }
+  }
+
+  let car1, car2;
+  let mode = "bot";
+  let lastTime = 0;
+  let running = false;
+  let winner = null;
+
+  function initGame() {
+    mode = modeSelect.value;
+    currentTrack = TRACKS[parseInt(trackSelect.value, 10)];
+    const s = currentTrack.start;
+
+    car1 = new Car("#1e90ff", s.x - 20, s.y + 40, s.angle, {
+      up: "w", down: "s", left: "a", right: "d"
+    });
+    car1.name = "Player 1";
+
+    car2 = new Car(mode === "bot" ? "#ff6347" : "#32cd32", s.x + 20, s.y + 40, s.angle, {
+      up: "arrowup", down: "arrowdown", left: "arrowleft", right: "arrowright"
+    });
+    car2.name = mode === "bot" ? "Bot" : "Player 2";
+
+    winner = null;
+    running = true;
+    lastTime = performance.now();
+    info.textContent = `Track: ${currentTrack.name} | First to ${LAPS_TO_WIN} laps wins.`;
+    requestAnimationFrame(loop);
+  }
+
+  function drawTrack(ctx, track) {
+    ctx.save();
+    ctx.fillStyle = "#333";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 80;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    const cps = track.checkpoints;
+    if (cps.length > 0) {
+      ctx.moveTo(cps[0].x, cps[0].y);
+      for (let i = 1; i < cps.length; i++) {
+        ctx.lineTo(cps[i].x, cps[i].y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = "#777";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 10]);
+    ctx.beginPath();
+    if (cps.length > 0) {
+      ctx.moveTo(cps[0].x, cps[0].y);
+      for (let i = 1; i < cps.length; i++) {
+        ctx.lineTo(cps[i].x, cps[i].y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    cps.forEach((cp, i) => {
+      ctx.beginPath();
+      ctx.arc(cp.x, cp.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.font = "12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(i + 1, cp.x, cp.y - 16);
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+    });
+
+    const s = track.start;
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    const sx1 = s.x - 40 * Math.cos(s.angle);
+    const sy1 = s.y - 40 * Math.sin(s.angle);
+    const sx2 = s.x + 40 * Math.cos(s.angle);
+    const sy2 = s.y + 40 * Math.sin(s.angle);
+    ctx.moveTo(sx1, sy1);
+    ctx.lineTo(sx2, sy2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawHUD(ctx) {
+    ctx.save();
+    ctx.font = "16px system-ui";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "left";
+    ctx.fillText(`P1 Laps: ${car1.lap}/${LAPS_TO_WIN}`, 20, 24);
+    ctx.fillText(`P1 Speed: ${car1.speed.toFixed(1)}`, 20, 44);
+
+    ctx.textAlign = "right";
+    ctx.fillText(`${car2.name} Laps: ${car2.lap}/${LAPS_TO_WIN}`, WIDTH - 20, 24);
+    ctx.fillText(`${car2.name} Speed: ${car2.speed.toFixed(1)}`, WIDTH - 20, 44);
+
+    if (winner) {
+      ctx.textAlign = "center";
+      ctx.font = "32px system-ui";
+      ctx.fillStyle = "#ffd700";
+      ctx.fillText(`${winner} wins!`, WIDTH / 2, HEIGHT / 2 - 10);
+      ctx.font = "18px system-ui";
+      ctx.fillStyle = "#fff";
+      ctx.fillText("Press Start Race to play again", WIDTH / 2, HEIGHT / 2 + 20);
+    }
+    ctx.restore();
+  }
+
+  function loop(timestamp) {
+    if (!running) return;
+    const dt = (timestamp - lastTime) / 16.67;
+    lastTime = timestamp;
+
+    drawTrack(ctx, currentTrack);
+
+    car1.update(dt, currentTrack, false, car2);
+    if (mode === "bot") {
+      car2.update(dt, currentTrack, true, car1);
+    } else {
+      car2.update(dt, currentTrack, false, car1);
+    }
+
+    car1.draw(ctx);
+    car2.draw(ctx);
+    drawHUD(ctx);
+
+    if (!winner && (car1.finished || car2.finished)) {
+      winner = car1.finished && car2.finished ? "Tie" :
+               car1.finished ? "Player 1" : car2.name;
+      info.textContent = `${winner} wins! Track: ${currentTrack.name}`;
+      running = false;
+      drawHUD(ctx);
+      return;
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  startBtn.addEventListener("click", () => {
+    initGame();
+  });
+
+  info.textContent = "Pick a mode and track, then press Start Race.";
+})();
+</script>
+</body>
+</html>
