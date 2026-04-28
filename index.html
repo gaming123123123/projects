@@ -3,67 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <title>Project Hub</title>
+
     <style>
         body {
             font-family: Arial, sans-serif;
-            background: #f4f4f4;
+            background: #0d0d0d;
             padding: 40px;
             text-align: center;
+            color: white;
         }
 
         h1 {
-            margin-bottom: 30px;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+            text-shadow: 0 0 10px white;
         }
 
+        /* Grid layout for cards */
         .menu {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            max-width: 300px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 25px;
+            max-width: 1000px;
             margin: 0 auto;
         }
 
-        .menu a {
-            display: block;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
+        /* Game card container */
+        .game-card {
+            width: 100%;
+            height: 360px;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 3px solid white;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+            background: #111;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            cursor: pointer;
             text-decoration: none;
-            color: #333;
-            font-size: 18px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            transition: 0.2s;
+            color: white;
+            display: flex;
+            flex-direction: column;
         }
 
-        .menu a:hover {
-            background: #0078ff;
-            color: white;
-            transform: translateY(-2px);
+        .game-card:hover {
+            transform: scale(1.07);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 1);
+        }
+
+        /* Top image section (70%) */
+        .game-card-image {
+            height: 70%;
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Glowing divider line */
+        .game-card-divider {
+            height: 3px;
+            background: white;
+            box-shadow: 0 0 8px white;
+        }
+
+        /* Bottom text section (30%) */
+        .game-card-info {
+            height: 30%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            text-align: center;
+        }
+
+        .game-card-info h3 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .game-card-info p {
+            margin: 5px 0 0;
+            font-size: 0.9rem;
+            opacity: 0.85;
         }
     </style>
 </head>
+
 <body>
 
-    <h1>Welcome to the Hub</h1>
-    <p>Select a page to visit:</p>
+    <h1>Welcome to my project</h1>
 
     <div class="menu">
-        <a href="clicker.html">Clicker game</a>
-        <a href="arena.html">Arena game</a>
-        <a href="boxing.html">Boxing game</a>
-        <a href="wobble.html">Wobble wars</a>
-        <a href="racing.html">racing game</a>
-        <a href="chess.html">chess game (no upgrading pieces yet)</a>
-        <a href="connect4.html">connect 4</a>
-        <a href="gangbeasts.html">defo not gangbeasts</a>
-        <a href="hotpotato.html">ghost wars</a>
-        <a href="neon.html">neon dodger</a>
-        <a href="sumo.html">sumo battle</a>
-        <a href="roguelike.html">roguelike game</a>
-        <a href="rocketleague.html">defo not 2D rocket league</a>
-        <a href="pokemon.html">pokemon</a>
-        <a href="platformer.py">platformer</a>
-        <a href="dodger game.py">dodger</a>
+
+        <a class="game-card" href="arena.html">
+            <div class="game-card-image" style="background-image: url('arena.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>Arena Game</h3>
+                <p>Battle waves of enemies</p>
+            </div>
+        </a>
+
+        <a class="game-card" href="boxing.html">
+            <div class="game-card-image" style="background-image: url('boxing.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>Boxing Game</h3>
+                <p>Fight in the ring</p>
+            </div>
+        </a>
+
+        <a class="game-card" href="wobble.html">
+            <div class="game-card-image" style="background-image: url('wobble.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>Wobble Wars</h3>
+                <p>Push opponents off the map</p>
+            </div>
+        </a>
+
+        <a class="game-card" href="racing.html">
+            <div class="game-card-image" style="background-image: url('racing.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>Racing Game</h3>
+                <p>Fast-paced racing action</p>
+            </div>
+        </a>
+
+        <a class="game-card" href="chess.html">
+            <div class="game-card-image" style="background-image: url('chess.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>Chess Game</h3>
+                <p>No castling or pawn upgrades yet</p>
+            </div>
+        </a>
+
+        <a class="game-card" href="connect4.html">
+            <div class="game-card-image" style="background-image: url('connect4.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>Connect 4</h3>
+                <p>Classic strategy game</p>
+            </div>
+        </a>
+
+        <a class="game-card" href="neon.html">
+            <div class="game-card-image" style="background-image: url('neon.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>Neon Dodger</h3>
+                <p>Dodge glowing obstacles</p>
+            </div>
+        </a>
+
+        <a class="game-card" href="sumo.html">
+            <div class="game-card-image" style="background-image: url('sumo.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>Sumo Battle</h3>
+                <p>Push your opponent out</p>
+            </div>
+        </a>
+
+        <a class="game-card" href="rocketleague.html">
+            <div class="game-card-image" style="background-image: url('football.jpg');"></div>
+            <div class="game-card-divider"></div>
+            <div class="game-card-info">
+                <h3>2D Football</h3>
+                <p>Score goals in 2D style</p>
+            </div>
+        </a>
+
     </div>
 
 </body>
