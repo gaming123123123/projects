@@ -4,31 +4,6 @@
   <meta charset="UTF-8" />
   <title>Neon Arena – Survival Shooter</title>
 
-  <!--
-    NEON ARENA – MASSIVE SINGLE-FILE BROWSER GAME
-    ------------------------------------------------
-    Features:
-    - Top-down twin-stick style (mouse aim, WASD move)
-    - Infinite waves of enemies with scaling difficulty
-    - XP, leveling, and perk choices
-    - Multiple weapon types (blaster, shotgun, railgun, orb cannon)
-    - Dash mechanic with cooldown
-    - Health, shields, regen, and pickups
-    - Particles, hit flashes, screen shake
-    - Pause, restart, and persistent best score via localStorage
-    - All in one HTML file: HTML + CSS + JS
-
-    Controls:
-    - Move: WASD / Arrow keys
-    - Aim: Mouse
-    - Shoot: Left mouse button / Space
-    - Dash: Shift / Right mouse button
-    - Pause: P or Esc
-
-    This file is intentionally long and heavily commented to hit your
-    “at least 50,000 characters” challenge while still being coherent.
-  -->
-
   <style>
     * {
       box-sizing: border-box;
@@ -319,7 +294,7 @@
 </head>
 <body>
   <h1>NEON ARENA</h1>
-  <div id="subtitle">Top-down survival shooter – one more run, I swear.</div>
+  <div id="subtitle">roguelike game against enemies</div>
 
   <div id="game-wrapper">
     <canvas id="game" width="720" height="540"></canvas>
@@ -380,9 +355,6 @@
   <div id="debug"></div>
 
   <script>
-    // ============================================================
-    // CORE SETUP
-    // ============================================================
 
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -404,10 +376,6 @@
 
     const W = canvas.width;
     const H = canvas.height;
-
-    // ============================================================
-    // GAME STATE
-    // ============================================================
 
     let running = false;
     let paused = false;
@@ -431,8 +399,8 @@
       speed: 220,
       vx: 0,
       vy: 0,
-      maxHp: 100,
-      hp: 100,
+      maxHp: 50,
+      hp: 50,
       regen: 0,
       xp: 0,
       xpToNext: 40,
@@ -443,7 +411,7 @@
       dashActive: false,
       dashSpeedMultiplier: 3.5,
       invulnTimer: 0,
-      fireCooldown: 0.18,
+      fireCooldown: 0.3,
       fireTimer: 0,
       weapon: "blaster",
       weaponLevel: 1,
@@ -494,10 +462,10 @@
 
     // Difficulty scaling
     let enemySpawnTimer = 0;
-    let enemySpawnInterval = 1.2;
-    let enemyBaseSpeed = 60;
-    let enemyBaseHp = 20;
-    let enemyBaseDamage = 8;
+    let enemySpawnInterval = 0.7;
+    let enemyBaseSpeed = 70;
+    let enemyBaseHp = 40;
+    let enemyBaseDamage = 17;
 
     // Screen shake
     let shakeTimer = 0;
@@ -507,9 +475,6 @@
     const perks = [];
     const perkPool = [];
 
-    // ============================================================
-    // UTILITY FUNCTIONS
-    // ============================================================
 
     function randRange(min, max) {
       return Math.random() * (max - min) + min;
@@ -562,9 +527,7 @@
       }
     }
 
-    // ============================================================
     // PARTICLES
-    // ============================================================
 
     function spawnParticleBurst(x, y, color, count, speedMin, speedMax, lifeMin, lifeMax, sizeMin, sizeMax) {
       for (let i = 0; i < count; i++) {
@@ -610,9 +573,8 @@
       }
     }
 
-    // ============================================================
     // XP ORBS & PICKUPS
-    // ============================================================
+
 
     function spawnXpOrb(x, y, amount) {
       const count = Math.max(1, Math.round(amount / 5));
@@ -738,16 +700,15 @@
       }
     }
 
-    // ============================================================
     // PLAYER LOGIC
-    // ============================================================
+ 
 
     function resetPlayer() {
       player.x = W / 2;
       player.y = H / 2;
       player.vx = 0;
       player.vy = 0;
-      player.hp = player.maxHp = 100;
+      player.hp = player.maxHp = 50;
       player.regen = 0;
       player.xp = 0;
       player.xpToNext = 40;
@@ -756,7 +717,7 @@
       player.dashTimer = 0;
       player.dashActive = false;
       player.invulnTimer = 0;
-      player.fireCooldown = 0.18;
+      player.fireCooldown = 0.3;
       player.fireTimer = 0;
       player.weapon = "blaster";
       player.weaponLevel = 1;
@@ -781,7 +742,7 @@
       while (player.xp >= player.xpToNext) {
         player.xp -= player.xpToNext;
         player.level++;
-        player.xpToNext = Math.floor(player.xpToNext * 1.35 + 10);
+        player.xpToNext = Math.floor(player.xpToNext * 1.75 + 10);
         openPerkPanel();
       }
     }
@@ -954,9 +915,6 @@
       ctx.restore();
     }
 
-    // ============================================================
-    // WEAPONS & BULLETS
-    // ============================================================
 
     function fireWeapon() {
       const angle = angleBetween(player.x, player.y, player.aimX, player.aimY);
@@ -966,7 +924,7 @@
 
       if (weapon === "blaster") {
         player.fireTimer = Math.max(0.08, player.fireCooldown * (1 - level * 0.05));
-        const bulletSpeed = 420 + level * 40;
+        const bulletSpeed = 420 + level * 20;
         const damage = 12 + level * 3;
 
         const spread = spreadBase * (1 - level * 0.1);
@@ -996,7 +954,7 @@
         const pellets = 5 + level;
         const spread = 0.4 - level * 0.03;
         const bulletSpeed = 360 + level * 30;
-        const damage = 7 + level * 2;
+        const damage = 4 + level * 2;
 
         for (let i = 0; i < pellets; i++) {
           const a = angle + randRange(-spread, spread);
