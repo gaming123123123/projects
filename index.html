@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Project Hub</title>
-
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- SUPABASE CLIENT -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         body {
@@ -96,7 +98,7 @@
 
         /* Game grid */
         .menu {
-            display: grid;
+            display: none; /* hidden until logged in */
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
             gap: 25px;
             max-width: 1000px;
@@ -142,6 +144,23 @@
             background: rgba(0, 0, 0, 0.6);
             text-align: center;
         }
+
+        #userDisplay {
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            color: #0f0;
+        }
+
+        #logoutBtn {
+            display: none;
+            margin-bottom: 25px;
+            background: #f44336;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            color: white;
+        }
     </style>
 </head>
 
@@ -149,8 +168,11 @@
 
     <h1>Welcome to my project</h1>
 
+    <div id="userDisplay"></div>
+    <button id="logoutBtn" onclick="logout()">Logout</button>
+
     <!-- LOGIN / SIGNUP BUTTONS -->
-    <div class="top-buttons">
+    <div class="top-buttons" id="authButtons">
         <button onclick="showForm('loginForm')">Login</button>
         <button onclick="showForm('signupForm')">Sign Up</button>
     </div>
@@ -158,15 +180,15 @@
     <!-- LOGIN FORM -->
     <div id="loginForm" class="form-box">
         <div class="imgcontainer">
-            <img src="img_avatar2.png" class="avatar">
+            <img src="icon.png" class="avatar">
         </div>
 
         <h2>Login</h2>
 
-        <input type="text" placeholder="Enter Username" name="uname" required>
-        <input type="password" placeholder="Enter Password" name="psw" required>
+        <input id="loginEmail" type="text" placeholder="Enter Email" required>
+        <input id="loginPassword" type="password" placeholder="Enter Password" required>
 
-        <button class="form-btn">Login</button>
+        <button class="form-btn" onclick="login()">Login</button>
         <button class="form-btn cancelbtn" onclick="hideForms()">Cancel</button>
     </div>
 
@@ -174,16 +196,16 @@
     <div id="signupForm" class="form-box">
         <h2>Sign Up</h2>
 
-        <input type="text" placeholder="Enter Email" name="email" required>
-        <input type="password" placeholder="Enter Password" name="psw" required>
-        <input type="password" placeholder="Repeat Password" name="psw-repeat" required>
+        <input id="signupEmail" type="text" placeholder="Enter Email" required>
+        <input id="signupPassword" type="password" placeholder="Enter Password" required>
+        <input id="signupRepeat" type="password" placeholder="Repeat Password" required>
 
-        <button class="form-btn">Sign Up</button>
+        <button class="form-btn" onclick="signup()">Sign Up</button>
         <button class="form-btn cancelbtn" onclick="hideForms()">Cancel</button>
     </div>
 
     <!-- GAME MENU -->
-    <div class="menu">
+    <div class="menu" id="gameMenu">
 
         <a class="game-card" href="arena.html">
             <div class="game-card-image" style="background-image: url('arena.png');"></div>
@@ -260,6 +282,12 @@
     </div>
 
     <script>
+        // Initialize Supabase
+        const supabase = supabase.createClient(
+            "YOUR_SUPABASE_URL",
+            "YOUR_SUPABASE_ANON_KEY"
+        );
+
         function showForm(id) {
             hideForms();
             document.getElementById(id).style.display = "block";
@@ -270,6 +298,54 @@
             document.getElementById("loginForm").style.display = "none";
             document.getElementById("signupForm").style.display = "none";
         }
+
+        async function signup() {
+            const email = document.getElementById("signupEmail").value;
+            const password = document.getElementById("signupPassword").value;
+            const repeat = document.getElementById("signupRepeat").value;
+
+            if (password !== repeat) {
+                alert("Passwords do not match");
+                return;
+            }
+
+            const { error } = await supabase.auth.signUp({ email, password });
+
+            if (error) alert(error.message);
+            else alert("Account created! Check your email to verify.");
+        }
+
+        async function login() {
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) alert(error.message);
+            else updateUI();
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            location.reload();
+        }
+
+        async function updateUI() {
+            const { data } = await supabase.auth.getUser();
+
+            if (data.user) {
+                document.getElementById("authButtons").style.display = "none";
+                document.getElementById("gameMenu").style.display = "grid";
+                document.getElementById("logoutBtn").style.display = "inline-block";
+                document.getElementById("userDisplay").innerText =
+                    "Logged in as: " + data.user.email;
+            }
+        }
+
+        updateUI();
     </script>
 
 </body>
