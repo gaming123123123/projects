@@ -135,70 +135,7 @@
     </div>
 
     <script>
-        // Initialize Supabase
-        const supabase = supabase.createClient(
-            "YOUR_SUPABASE_URL",
-            "YOUR_SUPABASE_ANON_KEY"
-        );
 
-        function showForm(id) {
-            hideForms();
-            document.getElementById(id).style.display = "block";
-            window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-
-        function hideForms() {
-            document.getElementById("loginForm").style.display = "none";
-            document.getElementById("signupForm").style.display = "none";
-        }
-
-        async function signup() {
-            const email = document.getElementById("signupEmail").value;
-            const password = document.getElementById("signupPassword").value;
-            const repeat = document.getElementById("signupRepeat").value;
-
-            if (password !== repeat) {
-                alert("Passwords do not match");
-                return;
-            }
-
-            const { error } = await supabase.auth.signUp({ email, password });
-
-            if (error) alert(error.message);
-            else alert("Account created! Check your email to verify.");
-        }
-
-        async function login() {
-            const email = document.getElementById("loginEmail").value;
-            const password = document.getElementById("loginPassword").value;
-
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
-
-            if (error) alert(error.message);
-            else updateUI();
-        }
-
-        async function logout() {
-            await supabase.auth.signOut();
-            location.reload();
-        }
-
-        async function updateUI() {
-            const { data } = await supabase.auth.getUser();
-
-            if (data.user) {
-                document.getElementById("authButtons").style.display = "none";
-                document.getElementById("gameMenu").style.display = "grid";
-                document.getElementById("logoutBtn").style.display = "inline-block";
-                document.getElementById("userDisplay").innerText =
-                    "Logged in as: " + data.user.email;
-            }
-        }
-
-        updateUI();
     </script>
 
 </body>
