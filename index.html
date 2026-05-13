@@ -51,65 +51,12 @@
             background: rgba(0, 0, 0, 0.6);
             text-align: center;
         }
-
-        #userDisplay {
-            margin-bottom: 20px;
-            font-size: 1.2rem;
-            color: #0f0;
-        }
-
-        #logoutBtn {
-            display: none;
-            margin-bottom: 25px;
-            background: #f44336;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            border: none;
-            color: white;
-        }
     </style>
 </head>
 
 <body>
 
     <h1>Welcome to my project</h1>
-
-    <div id="userDisplay"></div>
-    <button id="logoutBtn" onclick="logout()">Logout</button>
-
-    <!-- LOGIN / SIGNUP BUTTONS -->
-    <div class="top-buttons" id="authButtons">
-        <button onclick="showForm('loginForm')">Login</button>
-        <button onclick="showForm('signupForm')">Sign Up</button>
-    </div>
-
-    <!-- LOGIN FORM -->
-    <div id="loginForm" class="form-box">
-        <div class="imgcontainer">
-            <img src="icon.png" class="avatar">
-        </div>
-
-        <h2>Login</h2>
-
-        <input id="loginEmail" type="text" placeholder="Enter Email" required>
-        <input id="loginPassword" type="password" placeholder="Enter Password" required>
-
-        <button class="form-btn" onclick="login()">Login</button>
-        <button class="form-btn cancelbtn" onclick="hideForms()">Cancel</button>
-    </div>
-
-    <!-- SIGNUP FORM -->
-    <div id="signupForm" class="form-box">
-        <h2>Sign Up</h2>
-
-        <input id="signupEmail" type="text" placeholder="Enter Email" required>
-        <input id="signupPassword" type="password" placeholder="Enter Password" required>
-        <input id="signupRepeat" type="password" placeholder="Repeat Password" required>
-
-        <button class="form-btn" onclick="signup()">Sign Up</button>
-        <button class="form-btn cancelbtn" onclick="hideForms()">Cancel</button>
-    </div>
 
     <!-- GAME MENU -->
     <div class="menu" id="gameMenu">
