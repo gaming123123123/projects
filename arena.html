@@ -46,7 +46,7 @@
     #game-wrapper {
       position: relative;
       margin-top: 4px;
-      border-radius: 12px;
+      border-radius: 5px;
       overflow: hidden;
       box-shadow:
         0 0 0 1px rgba(0, 255, 255, 0.08),
@@ -233,7 +233,7 @@
     .perk-card {
       width: 180px;
       padding: 10px;
-      border-radius: 10px;
+      border-radius: 5px;
       background: linear-gradient(145deg, rgba(0, 255, 204, 0.08), rgba(0, 168, 255, 0.08));
       border: 1px solid rgba(0, 255, 255, 0.18);
       box-shadow: 0 0 18px rgba(0, 0, 0, 0.7);
@@ -309,9 +309,6 @@
       <p>
         Survive waves, level up, and choose <b>perks</b> to become a glowing engine of destruction.
       </p>
-      <p class="small">
-        Tip: Don’t tunnel vision on damage—survivability perks keep your run alive.
-      </p>
       <button id="start-btn">Start Run</button>
     </div>
 
@@ -345,11 +342,6 @@
   <div id="controls">
     <button id="pause-btn">Pause</button>
     <button id="restart-btn">Restart</button>
-  </div>
-
-  <div id="message">
-    Hint: Kiting enemies in circles around the arena keeps them grouped for maximum splash damage.
-    Try different perk combos each run.
   </div>
 
   <div id="debug"></div>
@@ -396,14 +388,14 @@
       y: H / 2,
       radius: 14,
       color: "#00ffcc",
-      speed: 220,
+      speed: 1300,
       vx: 0,
       vy: 0,
-      maxHp: 50,
-      hp: 50,
+      maxHp: 10,
+      hp: 10,
       regen: 0,
       xp: 0,
-      xpToNext: 40,
+      xpToNext: 80,
       level: 1,
       dashCooldown: 3,
       dashTimer: 0,
@@ -708,10 +700,10 @@
       player.y = H / 2;
       player.vx = 0;
       player.vy = 0;
-      player.hp = player.maxHp = 50;
+      player.hp = player.maxHp = 10;
       player.regen = 0;
       player.xp = 0;
-      player.xpToNext = 40;
+      player.xpToNext = 80;
       player.level = 1;
       player.dashCooldown = 3;
       player.dashTimer = 0;
@@ -954,7 +946,7 @@
         const pellets = 5 + level;
         const spread = 0.4 - level * 0.03;
         const bulletSpeed = 360 + level * 30;
-        const damage = 4 + level * 2;
+        const damage = 4 + level * 1.5;
 
         for (let i = 0; i < pellets; i++) {
           const a = angle + randRange(-spread, spread);
@@ -1356,11 +1348,11 @@
         {
           id: "hp_up",
           name: "Vital Core",
-          desc: "+25% max HP and heal 25%.",
+          desc: "+5% max HP and heal 5%.",
           apply() {
             const oldMax = player.maxHp;
-            player.maxHp = Math.round(player.maxHp * 1.25);
-            const heal = (player.maxHp - oldMax) * 0.5;
+            player.maxHp = Math.round(player.maxHp * 1.05);
+            const heal = (player.maxHp - oldMax) * 0.05;
             player.hp = clamp(player.hp + heal, 0, player.maxHp);
           }
         },
@@ -1369,7 +1361,7 @@
           name: "Slow Mend",
           desc: "Gain slow HP regeneration over time.",
           apply() {
-            player.regen += 2.5;
+            player.regen += 1.5;
           }
         },
         {
@@ -1377,7 +1369,7 @@
           name: "Phase Boots",
           desc: "+20% movement speed.",
           apply() {
-            player.speed *= 1.2;
+            player.speed *= 1.02;
           }
         },
         {
@@ -1385,7 +1377,7 @@
           name: "Blink Engine",
           desc: "Dash cooldown reduced by 35%.",
           apply() {
-            player.dashCooldown *= 0.65;
+            player.dashCooldown *= 0.95;
           }
         },
         {
@@ -1405,7 +1397,7 @@
             const shieldAmount = player.maxHp * 0.3;
             player.shieldMax += shieldAmount;
             player.shield += shieldAmount;
-            player.shieldRegenRate += 4;
+            player.shieldRegenRate += 2;
           }
         },
         {
@@ -1456,11 +1448,11 @@
         {
           id: "xp_gain",
           name: "Learning Algorithm",
-          desc: "Gain +25% XP from all sources.",
+          desc: "Gain +15% XP from all sources.",
           apply() {
             const oldGain = playerGainXp;
             window.playerGainXp = function(amount) {
-              oldGain(amount * 1.25);
+              oldGain(amount * 1.15);
             };
           }
         }
